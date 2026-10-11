@@ -382,6 +382,35 @@ input:focus,select:focus{border-color:var(--accent)}
 .fac-tag-aula{background:var(--accent-bg);color:var(--accent-text)}
 .fac-tag-prova{background:var(--danger-bg);color:var(--danger-text)}
 .fac-tag-todo{background:var(--warning-bg);color:var(--warning-text)}
+/* CRONÔMETRO ESTUDOS */
+.cron-display{font-size:52px;font-weight:700;letter-spacing:2px;text-align:center;color:var(--accent-text);font-variant-numeric:tabular-nums;padding:16px 0 8px}
+.cron-cad-sel{width:100%;height:40px;padding:0 12px;border:.5px solid var(--border2);border-radius:var(--radius);background:var(--surface);color:var(--text);font-size:14px;outline:none;margin-bottom:10px}
+.cron-cad-sel:focus{border-color:var(--accent)}
+.cron-btns{display:flex;gap:8px;margin-bottom:10px}
+.cron-btn{flex:1;padding:11px 0;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;border:.5px solid;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
+.cron-btn:active{opacity:.75}
+.cron-start{background:var(--success-bg);color:var(--success-text);border-color:var(--success)}
+.cron-pause{background:var(--warning-bg);color:var(--warning-text);border-color:var(--warning)}
+.cron-stop{background:var(--danger-bg);color:var(--danger-text);border-color:var(--danger)}
+.cron-save{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent)}
+.cron-status{text-align:center;font-size:12px;color:var(--text3);margin-bottom:8px;min-height:16px}
+/* CALENDÁRIO ESTUDOS */
+.estudo-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:8px}
+.estudo-hdr{font-size:9px;font-weight:600;color:var(--text3);text-align:center;padding:3px 0;text-transform:uppercase;letter-spacing:.04em}
+.estudo-day{aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;background:var(--surface2);cursor:default;position:relative;gap:1px}
+.estudo-day.empty-day{background:transparent}
+.estudo-day.ed-hoje{outline:2px solid var(--accent);outline-offset:1px}
+.estudo-day.ed-has{background:var(--accent-bg)}
+.estudo-day .ed-num{font-size:11px;font-weight:500;color:var(--text2)}
+.estudo-day.ed-has .ed-num{color:var(--accent-text);font-weight:700}
+.estudo-day .ed-h{font-size:9px;color:var(--accent-text);font-weight:600;line-height:1}
+.estudo-day .ed-cads{display:flex;gap:2px;flex-wrap:wrap;justify-content:center;padding:0 2px}
+.estudo-day .ed-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.estudo-log-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:.5px solid var(--border);font-size:12px}
+.estudo-log-item:last-child{border-bottom:none}
+.estudo-log-cad{flex:1;font-size:13px;font-weight:500;color:var(--text)}
+.estudo-log-meta{font-size:11px;color:var(--text3);text-align:right}
+.estudo-log-del{background:none;border:none;cursor:pointer;color:var(--danger-text);font-size:14px;opacity:.6;flex-shrink:0}
 /* DESKTOP LAYOUT */
 @media(min-width:768px){
   body{overflow-x:hidden}
@@ -957,10 +986,48 @@ input:focus,select:focus{border-color:var(--accent)}
         <div class="fac-sem-sel" id="fac-sem-sel2"></div>
         <div id="fac-cadeiras-lista"></div>
       </div>
+      <div id="screen-fac-cronometro" class="screen">
+        <div class="card">
+          <div class="ctitle"><i class="ti ti-clock"></i>cronômetro de estudos</div>
+          <select class="cron-cad-sel" id="cron-cad-sel">
+            <option value="">— selecione a cadeira —</option>
+            <option value="__manual__">+ outro (digitar)</option>
+          </select>
+          <div id="cron-manual-wrap" style="display:none;margin-bottom:10px">
+            <input type="text" id="cron-manual-nome" placeholder="nome da cadeira / assunto" style="height:40px">
+          </div>
+          <div class="cron-display" id="cron-display">00:00:00</div>
+          <div class="cron-status" id="cron-status"></div>
+          <div class="cron-btns">
+            <button class="cron-btn cron-start" id="cron-start-btn" onclick="cronStart()"><i class="ti ti-player-play"></i>iniciar</button>
+            <button class="cron-btn cron-pause" id="cron-pause-btn" onclick="cronPause()" style="display:none"><i class="ti ti-player-pause"></i>pausar</button>
+            <button class="cron-btn cron-stop" id="cron-stop-btn" onclick="cronStop()" style="display:none"><i class="ti ti-player-stop"></i>parar</button>
+          </div>
+          <button class="btn bp" id="cron-save-btn" onclick="cronSave()" style="display:none"><i class="ti ti-device-floppy"></i>salvar sessão</button>
+        </div>
+        <div class="card">
+          <div class="ctitle"><i class="ti ti-calendar"></i>horas estudadas — <span id="estudo-cal-mes-label"></span>
+            <span style="margin-left:auto;display:flex;gap:4px">
+              <button onclick="navEstudoCal(-1)" style="background:none;border:.5px solid var(--border2);border-radius:5px;padding:2px 7px;cursor:pointer;color:var(--text2);font-size:12px">‹</button>
+              <button onclick="navEstudoCal(1)" style="background:none;border:.5px solid var(--border2);border-radius:5px;padding:2px 7px;cursor:pointer;color:var(--text2);font-size:12px">›</button>
+            </span>
+          </div>
+          <div class="estudo-cal-grid" id="estudo-cal-grid"></div>
+          <div class="g2" style="margin-bottom:0">
+            <div class="metric"><div class="mlabel">total no mês</div><div class="mval t" id="estudo-total-mes">0h 0min</div></div>
+            <div class="metric"><div class="mlabel">média diária</div><div class="mval p" id="estudo-media-dia">0h 0min</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ctitle"><i class="ti ti-list"></i>registros recentes</div>
+          <div id="estudo-log-lista"></div>
+        </div>
+      </div>
     </div>
     <nav class="sub-nav sub-nav-set" id="nav-faculdade">
       <button class="nb active" onclick="showFacScreen('semana',this)"><i class="ti ti-calendar-week"></i>Semana</button>
       <button class="nb" onclick="showFacScreen('cadeiras',this)"><i class="ti ti-books"></i>Cadeiras</button>
+      <button class="nb" onclick="showFacScreen('cronometro',this);initCronCadSel();renderEstudoCal()"><i class="ti ti-clock"></i>Estudo</button>
     </nav>
   </div>
 
@@ -1042,6 +1109,12 @@ input:focus,select:focus{border-color:var(--accent)}
       <input type="hidden" id="fac-assunto-cad-id">
       <div class="fg"><label class="fl">assunto / tópico</label><input type="text" id="fac-assunto-nome" placeholder="ex: Sistema nervoso autônomo, Termodinâmica..."></div>
       <div class="fg"><label class="fl">data da aula</label><input type="date" id="fac-assunto-data"></div>
+      <div class="fg"><label class="fl">data vista (opcional)</label><input type="date" id="fac-assunto-data-visto"></div>
+      <div class="fg" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <input type="checkbox" id="fac-assunto-estudado" style="width:18px;height:18px;flex-shrink:0">
+        <label for="fac-assunto-estudado" style="font-size:13px;color:var(--text2);cursor:pointer">já estudei este assunto</label>
+      </div>
+      <div class="fg"><label class="fl">data para revisão (opcional)</label><input type="date" id="fac-assunto-data-revisao"></div>
       <div style="display:flex;gap:8px;margin-top:4px">
         <button class="btn bghost" style="flex:1;margin-top:0" onclick="closeFacAssuntoModal()">cancelar</button>
         <button class="btn bp" style="flex:2;margin-top:0" onclick="saveFacAssunto()"><i class="ti ti-check"></i>salvar</button>
@@ -2532,15 +2605,27 @@ function renderFacCadeiraCard(c){
         <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
           <button class="sync-btn" onclick="openFacAssuntoModal('${c.id}')"><i class="ti ti-plus"></i>assunto</button>
         </div>
-        ${assuntos.length?assuntos.map(a=>`
-          <div class="fac-assunto-item">
-            <div class="fac-assunto-check${a.visto?' done':''}" onclick="toggleFacAssunto('${c.id}','${a.id}')">
-              ${a.visto?'<i class="ti ti-check" style="font-size:11px"></i>':''}
+        ${assuntos.length?assuntos.map(a=>{
+          const rev=a.dataRevisao?fmtData(a.dataRevisao):'';
+          const visto=a.dataVisto?fmtData(a.dataVisto):'';
+          const estudadoBadge=a.estudado
+            ?`<span class="badge bok" style="font-size:9px;padding:1px 6px">✓ estudado</span>`
+            :`<span class="badge bpend" onclick="toggleFacAssundoEstudado('${c.id}','${a.id}')" style="font-size:9px;padding:1px 6px;cursor:pointer">não estudado</span>`;
+          const metaLine=[];
+          if(visto)metaLine.push(`<span>📅 visto: ${visto}</span>`);
+          if(rev)metaLine.push(`<span style="color:var(--warning-text)">🔄 revisão: ${rev}</span>`);
+          return`
+          <div class="fac-assunto-item" style="flex-direction:column;align-items:stretch;gap:3px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="fac-assunto-check${a.visto?' done':''}" onclick="toggleFacAssunto('${c.id}','${a.id}')">
+                ${a.visto?'<i class="ti ti-check" style="font-size:11px"></i>':''}
+              </div>
+              <span class="fac-assunto-nome" style="${a.visto?'color:var(--text3);text-decoration:line-through':''}">${a.nome}</span>
+              ${estudadoBadge}
+              <button class="agd-event-del" style="opacity:.5;flex-shrink:0" onclick="deleteFacAssunto('${c.id}','${a.id}')"><i class="ti ti-trash"></i></button>
             </div>
-            <span class="fac-assunto-nome" style="${a.visto?'color:var(--text3);text-decoration:line-through':''}">${a.nome}</span>
-            <span class="fac-assunto-data">${fmtData(a.data)}</span>
-            <button class="agd-event-del" style="opacity:.5" onclick="deleteFacAssunto('${c.id}','${a.id}')"><i class="ti ti-trash"></i></button>
-          </div>`).join(''):`<div class="empty" style="padding:10px 0;font-size:12px">sem assuntos cadastrados</div>`}
+            ${metaLine.length?`<div style="display:flex;gap:10px;padding-left:26px;font-size:10px;color:var(--text3)">${metaLine.join('')}</div>`:''}
+          </div>`}).join(''):`<div class="empty" style="padding:10px 0;font-size:12px">sem assuntos cadastrados</div>`}
       </div>
       <!-- PROVAS -->
       <div class="fac-sub-screen" id="fac-ss-provas-${c.id}">
@@ -2642,6 +2727,9 @@ function openFacAssuntoModal(cadId){
   document.getElementById('fac-assunto-cad-id').value=cadId;
   document.getElementById('fac-assunto-nome').value='';
   document.getElementById('fac-assunto-data').value=dateKey(new Date());
+  document.getElementById('fac-assunto-data-visto').value='';
+  document.getElementById('fac-assunto-estudado').checked=false;
+  document.getElementById('fac-assunto-data-revisao').value='';
   document.getElementById('modal-fac-assunto').style.display='flex';
 }
 function closeFacAssuntoModal(){document.getElementById('modal-fac-assunto').style.display='none';}
@@ -2649,14 +2737,22 @@ function saveFacAssunto(){
   const cadId=document.getElementById('fac-assunto-cad-id').value;
   const nome=document.getElementById('fac-assunto-nome').value.trim();
   const data=document.getElementById('fac-assunto-data').value;
+  const dataVisto=document.getElementById('fac-assunto-data-visto').value||'';
+  const estudado=document.getElementById('fac-assunto-estudado').checked;
+  const dataRevisao=document.getElementById('fac-assunto-data-revisao').value||'';
   if(!nome)return;
   const cads=getFacCadeiras();const idx=cads.findIndex(c=>c.id===cadId);if(idx<0)return;
-  cads[idx].assuntos.push({id:'as'+Date.now(),nome,data,visto:false});
+  cads[idx].assuntos.push({id:'as'+Date.now(),nome,data,visto:false,dataVisto,estudado,dataRevisao});
   saveFacCadeiras(cads);closeFacAssuntoModal();renderFacCadeiras();
 }
 function toggleFacAssunto(cadId,assId){
   const cads=getFacCadeiras();const idx=cads.findIndex(c=>c.id===cadId);if(idx<0)return;
   const a=cads[idx].assuntos.find(x=>x.id===assId);if(a)a.visto=!a.visto;
+  saveFacCadeiras(cads);renderFacCadeiras();
+}
+function toggleFacAssundoEstudado(cadId,assId){
+  const cads=getFacCadeiras();const idx=cads.findIndex(c=>c.id===cadId);if(idx<0)return;
+  const a=cads[idx].assuntos.find(x=>x.id===assId);if(a)a.estudado=!a.estudado;
   saveFacCadeiras(cads);renderFacCadeiras();
 }
 function deleteFacAssunto(cadId,assId){
@@ -2966,6 +3062,165 @@ renderLeitura();
 renderAgdCal();
 renderFacSemSel();
 renderFacSemana();
+
+// ── CRONÔMETRO DE ESTUDOS ─────────────────────────────────
+function getEstudoLog(){try{return JSON.parse(localStorage.getItem('estudoLog')||'[]');}catch(e){return[];}}
+function saveEstudoLog(l){localStorage.setItem('estudoLog',JSON.stringify(l));}
+
+let cronInterval=null,cronSegundos=0,cronRunning=false,cronPaused=false;
+
+function initCronCadSel(){
+  const sel=document.getElementById('cron-cad-sel');
+  if(!sel)return;
+  const cads=getFacCadeiras();
+  while(sel.options.length>2)sel.remove(2);
+  cads.forEach(c=>{
+    const o=document.createElement('option');
+    o.value=c.id;o.textContent=c.nome;sel.add(o,sel.options.length-1);
+  });
+  sel.onchange=function(){
+    document.getElementById('cron-manual-wrap').style.display=this.value==='__manual__'?'block':'none';
+  };
+}
+
+function cronFmt(s){
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+  return[h,m,ss].map(x=>String(x).padStart(2,'0')).join(':');
+}
+
+function cronStart(){
+  cronRunning=true;cronPaused=false;
+  document.getElementById('cron-start-btn').style.display='none';
+  document.getElementById('cron-pause-btn').style.display='flex';
+  document.getElementById('cron-stop-btn').style.display='flex';
+  document.getElementById('cron-save-btn').style.display='none';
+  document.getElementById('cron-status').textContent='cronômetro rodando…';
+  clearInterval(cronInterval);
+  cronInterval=setInterval(()=>{cronSegundos++;document.getElementById('cron-display').textContent=cronFmt(cronSegundos);},1000);
+}
+
+function cronPause(){
+  if(!cronRunning||cronPaused)return;
+  clearInterval(cronInterval);cronPaused=true;
+  const btn=document.getElementById('cron-pause-btn');
+  btn.innerHTML='<i class="ti ti-player-play"></i>retomar';
+  btn.onclick=cronResume;
+  document.getElementById('cron-status').textContent='pausado';
+}
+
+function cronResume(){
+  cronPaused=false;
+  const btn=document.getElementById('cron-pause-btn');
+  btn.innerHTML='<i class="ti ti-player-pause"></i>pausar';
+  btn.onclick=cronPause;
+  document.getElementById('cron-status').textContent='cronômetro rodando…';
+  clearInterval(cronInterval);
+  cronInterval=setInterval(()=>{cronSegundos++;document.getElementById('cron-display').textContent=cronFmt(cronSegundos);},1000);
+}
+
+function cronStop(){
+  clearInterval(cronInterval);cronRunning=false;cronPaused=false;
+  document.getElementById('cron-start-btn').style.display='flex';
+  document.getElementById('cron-pause-btn').style.display='none';
+  document.getElementById('cron-stop-btn').style.display='none';
+  document.getElementById('cron-save-btn').style.display='flex';
+  document.getElementById('cron-status').textContent=`sessão encerrada — ${cronFmt(cronSegundos)}`;
+}
+
+function cronSave(){
+  const sel=document.getElementById('cron-cad-sel');
+  let cadNome='';
+  if(sel.value==='__manual__'){cadNome=(document.getElementById('cron-manual-nome').value||'').trim();}
+  else if(sel.value){const c=getFacCadeiras().find(x=>x.id===sel.value);cadNome=c?c.nome:'';}
+  if(!cadNome){document.getElementById('cron-status').textContent='selecione ou digite a cadeira';return;}
+  if(cronSegundos<10){document.getElementById('cron-status').textContent='sessão muito curta';return;}
+  const log=getEstudoLog();
+  const hoje=new Date().toISOString().slice(0,10);
+  log.push({id:'el'+Date.now(),cadeira:cadNome,segundos:cronSegundos,data:hoje,ts:Date.now()});
+  saveEstudoLog(log);
+  cronSegundos=0;
+  document.getElementById('cron-display').textContent='00:00:00';
+  document.getElementById('cron-save-btn').style.display='none';
+  document.getElementById('cron-start-btn').style.display='flex';
+  document.getElementById('cron-status').textContent='✓ sessão salva!';
+  document.getElementById('cron-pause-btn').innerHTML='<i class="ti ti-player-pause"></i>pausar';
+  document.getElementById('cron-pause-btn').onclick=cronPause;
+  renderEstudoCal();
+}
+
+let estudoCalMes=new Date().getMonth(),estudoCalAno=new Date().getFullYear();
+
+function navEstudoCal(d){
+  estudoCalMes+=d;
+  if(estudoCalMes>11){estudoCalMes=0;estudoCalAno++;}
+  if(estudoCalMes<0){estudoCalMes=11;estudoCalAno--;}
+  renderEstudoCal();
+}
+
+function renderEstudoCal(){
+  const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const lbl=document.getElementById('estudo-cal-mes-label');
+  if(lbl)lbl.textContent=MESES[estudoCalMes]+'/'+estudoCalAno;
+  const log=getEstudoLog();
+  const dayMap={};
+  log.forEach(e=>{
+    if(!e.data)return;
+    const[y,m]=e.data.split('-').map(Number);
+    if(y===estudoCalAno&&m-1===estudoCalMes)dayMap[e.data]=(dayMap[e.data]||0)+e.segundos;
+  });
+  const hoje=new Date().toISOString().slice(0,10);
+  const firstDay=new Date(estudoCalAno,estudoCalMes,1).getDay();
+  const daysInMonth=new Date(estudoCalAno,estudoCalMes+1,0).getDate();
+  const DIAS=['D','S','T','Q','Q','S','S'];
+  const grid=document.getElementById('estudo-cal-grid');
+  if(!grid)return;
+  let h=DIAS.map(d=>`<div class="estudo-hdr">${d}</div>`).join('');
+  for(let i=0;i<firstDay;i++)h+=`<div class="estudo-day empty-day"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const iso=`${estudoCalAno}-${String(estudoCalMes+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const secs=dayMap[iso]||0;
+    const isHoje=iso===hoje;
+    const hasStudy=secs>0;
+    const hStr=secs>=3600?`${Math.floor(secs/3600)}h`:(secs>=60?`${Math.floor(secs/60)}m`:'');
+    h+=`<div class="estudo-day${hasStudy?' ed-has':''}${isHoje?' ed-hoje':''}">
+      <span class="ed-num">${d}</span>
+      ${hStr?`<span class="ed-h">${hStr}</span>`:''}
+    </div>`;
+  }
+  grid.innerHTML=h;
+  const totalSecs=Object.values(dayMap).reduce((a,b)=>a+b,0);
+  const daysStudied=Object.keys(dayMap).length;
+  const th=Math.floor(totalSecs/3600),tm=Math.floor((totalSecs%3600)/60);
+  const avgSecs=daysStudied?Math.floor(totalSecs/daysStudied):0;
+  const ah=Math.floor(avgSecs/3600),am=Math.floor((avgSecs%3600)/60);
+  const tel=document.getElementById('estudo-total-mes');
+  const mel=document.getElementById('estudo-media-dia');
+  if(tel)tel.textContent=`${th}h ${tm}min`;
+  if(mel)mel.textContent=daysStudied?`${ah}h ${am}min`:'0h 0min';
+  renderEstudoLogLista();
+}
+
+function renderEstudoLogLista(){
+  const el=document.getElementById('estudo-log-lista');
+  if(!el)return;
+  const log=getEstudoLog().slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,20);
+  if(!log.length){el.innerHTML='<div class="empty">nenhum registro ainda</div>';return;}
+  el.innerHTML=log.map(e=>{
+    const h=Math.floor(e.segundos/3600),m=Math.floor((e.segundos%3600)/60),s=e.segundos%60;
+    const dur=h?`${h}h ${m}min`:`${m}min ${s}s`;
+    const d=e.data?e.data.split('-').reverse().join('/'):'';
+    return`<div class="estudo-log-item">
+      <div class="estudo-log-cad">${e.cadeira}</div>
+      <div class="estudo-log-meta">${dur}<br>${d}</div>
+      <button class="estudo-log-del" onclick="deleteEstudoLog('${e.id}')"><i class="ti ti-trash"></i></button>
+    </div>`;
+  }).join('');
+}
+
+function deleteEstudoLog(id){
+  saveEstudoLog(getEstudoLog().filter(e=>e.id!==id));
+  renderEstudoCal();
+}
 </script>
 </body>
 </html>
