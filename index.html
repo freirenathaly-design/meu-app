@@ -3165,7 +3165,7 @@ function cronSave(){
   if(cronSegundos<10){document.getElementById('cron-status').textContent='sessão muito curta';return;}
   const log=getEstudoLog();
   const hoje=new Date().toISOString().slice(0,10);
-  log.push({id:'el'+Date.now(),cadeira:cadNome,segundos:cronSegundos,data:hoje,ts:Date.now()});
+  log.push({id:'el'+Date.now(),cadeira:cadNome,segundos:cronSegundos,pausa:pausaSegundos,data:hoje,ts:Date.now()});
   saveEstudoLog(log);
   cronSegundos=0;
   document.getElementById('cron-display').textContent='00:00:00';
@@ -3239,9 +3239,10 @@ function renderEstudoLogLista(){
     const h=Math.floor(e.segundos/3600),m=Math.floor((e.segundos%3600)/60),s=e.segundos%60;
     const dur=h?`${h}h ${m}min`:`${m}min ${s}s`;
     const d=e.data?e.data.split('-').reverse().join('/'):'';
+    const pausaMeta=e.pausa>0?(()=>{const ph=Math.floor(e.pausa/3600),pm=Math.floor((e.pausa%3600)/60),ps=e.pausa%60;return`<br><span style="color:var(--warning-text)">☕ pausa: ${ph?ph+'h ':''} ${pm}min ${ps}s</span>`})():'';
     return`<div class="estudo-log-item">
       <div class="estudo-log-cad">${e.cadeira}</div>
-      <div class="estudo-log-meta">${dur}<br>${d}</div>
+      <div class="estudo-log-meta">${dur}${pausaMeta}<br>${d}</div>
       <button class="estudo-log-del" onclick="deleteEstudoLog('${e.id}')"><i class="ti ti-trash"></i></button>
     </div>`;
   }).join('');
