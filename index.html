@@ -1354,6 +1354,198 @@ input:focus,select:focus{border-color:var(--accent)}
   </div>
 
 </div>
+<script>
+/* ===== SINCRONIZACAO ENTRE APARELHOS (Painel de Vida) =====
+   Espelha as chaves do localStorage em /api/sync (Vercel + Upstash Redis).
+   Regra: a edicao mais recente de cada chave vence. */
+(function () {
+  'use strict';
+  var KEYS = ['vendas', 'treinoData', 'treinoSessoes', 'treinoBloco', 'treinoCheckins', 'pesoLog',
+    'dietaStatus', 'dietaCheck', 'casaTasks', 'casaDone', 'feiraItems', 'livros', 'planoLeitura',
+    'wishlistItems', 'agdEventos', 'agdCats', 'facCadeiras', 'facTodoGeral', 'estudoLog'];
+  var ENDPOINT = '/api/sync';
+  var META_KEY = 'syncMeta';   // { chave: instante da ultima edicao } - fica so neste aparelho
+  var TOKEN_KEY = 'syncToken'; // senha de sincronizacao - fica so neste aparelho
+
+  var ls = window.localStorage;
+  var rawSet = Storage.prototype.setItem;
+  var rawGet = Storage.prototype.getItem;
+  var rawRemove = Storage.prototype.removeItem;
+
+  var ready = false;   // so vira true depois da primeira consulta a nuvem
+  var dirty = {};      // chaves editadas aqui e ainda nao enviadas
+  var pushTimer = null;
+  var pulling = false;
+  var state = 'idle';  // idle | sync | ok | err | off
+  var lastOk = 0;
+  var dot = null;
+
+  function readMeta() { try { return JSON.parse(rawGet.call(ls, META_KEY) || '{}'); } catch (e) { return {}; } }
+  function writeMeta(m) { rawSet.call(ls, META_KEY, JSON.stringify(m)); }
+
+  function setState(s) {
+    state = s;
+    if (s === 'ok') lastOk = Date.now();
+    if (!dot) return;
+    dot.style.background = { idle: '#9b99af', sync: '#f59e42', ok: '#3bc47a', err: '#e8546a', off: '#9b99af' }[s] || '#9b99af';
+  }
+
+  // Toda gravacao numa chave sincronizada passa por aqui.
+  Storage.prototype.setItem = function (k, v) {
+    rawSet.call(this, k, v);
+    if (this === ls && KEYS.indexOf(k) !== -1) touch(k);
+  };
+
+  function touch(k) {
+    var m = readMeta();
+    // Antes da primeira consulta, gravacoes sao so valores padrao do app: nunca devem sobrescrever a nuvem.
+    m[k] = ready ? Date.now() : 0;
+    writeMeta(m);
+    if (ready) { dirty[k] = true; schedulePush(); }
+  }
+
+  function api(method, body, keepalive) {
+    var tok = rawGet.call(ls, TOKEN_KEY);
+    if (!tok) {
+      tok = window.prompt('Senha de sincronizacao (a mesma definida como SYNC_TOKEN no Vercel):');
+      if (!tok) return Promise.reject(new Error('sem-senha'));
+      rawSet.call(ls, TOKEN_KEY, tok);
+    }
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var to = ctrl ? setTimeout(function () { ctrl.abort(); }, 12000) : null;
+    return fetch(ENDPOINT, {
+      method: method,
+      headers: { 'content-type': 'application/json', 'x-sync-token': tok },
+      body: body ? JSON.stringify(body) : undefined,
+      cache: 'no-store',
+      keepalive: !!keepalive,
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (r) {
+      if (to) clearTimeout(to);
+      if (r.status === 401) { rawRemove.call(ls, TOKEN_KEY); throw new Error('senha-invalida'); }
+      if (!r.ok) throw new Error('http-' + r.status);
+      return r.json();
+    }, function (e) { if (to) clearTimeout(to); throw e; });
+  }
+
+  function schedulePush() {
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(push, 800);
+  }
+
+  function push(keepalive) {
+    var keys = Object.keys(dirty);
+    if (!keys.length) return Promise.resolve();
+    var m = readMeta(), changes = {};
+    keys.forEach(function (k) {
+      var v = rawGet.call(ls, k);
+      if (v !== null) changes[k] = { v: v, t: m[k] || Date.now() };
+    });
+    dirty = {};
+    setState('sync');
+    return api('POST', { changes: changes }, keepalive === true).then(function () {
+      setState('ok');
+    }).catch(function () {
+      keys.forEach(function (k) { dirty[k] = true; });
+      setState('err');
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(push, 15000);
+    });
+  }
+
+  function reloadSoon() {
+    var last = +sessionStorage.getItem('syncReloadAt') || 0;
+    if (Date.now() - last < 8000) return; // evita laco de recarregamentos
+    var ae = document.activeElement;
+    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) { setTimeout(reloadSoon, 3000); return; }
+    sessionStorage.setItem('syncReloadAt', String(Date.now()));
+    location.reload();
+  }
+
+  function pull(force) {
+    if (pulling) return Promise.resolve();
+    pulling = true;
+    setState('sync');
+    return api('GET').then(function (remote) {
+      var m = readMeta(), changed = false;
+      Object.keys(remote || {}).forEach(function (k) {
+        if (KEYS.indexOf(k) === -1) return;
+        var r = remote[k];
+        if (!r || typeof r.v !== 'string') return;
+        if (!force && dirty[k]) return;                       // edicao local ainda nao enviada
+        if (force || r.t > (m[k] || 0)) {
+          if (rawGet.call(ls, k) !== r.v) { rawSet.call(ls, k, r.v); changed = true; }
+          m[k] = r.t;
+        }
+      });
+      writeMeta(m);
+      ready = true;
+      setState('ok');
+      if (changed) reloadSoon();
+    }).catch(function (e) {
+      ready = true;
+      setState(e && e.message === 'sem-senha' ? 'off' : 'err');
+    }).then(function () { pulling = false; });
+  }
+
+  function pushAll() {
+    if (!window.confirm('Enviar TODOS os dados deste aparelho para a nuvem?\nIsso substitui o que ja estiver salvo na nuvem.')) { return; }
+    var m = readMeta(), changes = {}, now = Date.now();
+    KEYS.forEach(function (k) {
+      var v = rawGet.call(ls, k);
+      if (v !== null) { changes[k] = { v: v, t: now }; m[k] = now; }
+    });
+    ready = true;
+    setState('sync');
+    api('POST', { changes: changes, force: true }).then(function () {
+      writeMeta(m);
+      setState('ok');
+      history.replaceState(null, '', location.pathname);
+      window.alert('Dados enviados. Agora abra o app no outro aparelho.');
+    }).catch(function (e) {
+      setState('err');
+      window.alert('Falha ao enviar: ' + e.message);
+    });
+  }
+
+  function pullAll() {
+    if (!window.confirm('Baixar os dados da nuvem e substituir os dados deste aparelho?')) { pull(); return; }
+    history.replaceState(null, '', location.pathname);
+    pull(true);
+  }
+
+  function addDot() {
+    dot = document.createElement('div');
+    dot.setAttribute('aria-label', 'Estado da sincronizacao');
+    dot.style.cssText = 'position:fixed;top:3px;right:3px;width:9px;height:9px;border-radius:50%;z-index:99999;opacity:.8;background:#9b99af';
+    dot.addEventListener('click', function () {
+      var nomes = { idle: 'aguardando', sync: 'sincronizando', ok: 'sincronizado', err: 'erro de conexao ou senha', off: 'desativada (sem senha)' };
+      pull();
+      window.alert('Sincronizacao: ' + nomes[state] + (lastOk ? '\nUltima vez: ' + new Date(lastOk).toLocaleTimeString('pt-BR') : ''));
+    });
+    document.body.appendChild(dot);
+    setState(state);
+  }
+
+  function start() {
+    addDot();
+    var cmd = new URLSearchParams(location.search).get('sync');
+    if (cmd === 'enviar') { pushAll(); }
+    else if (cmd === 'baixar') { pullAll(); }
+    else { pull(); }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { clearTimeout(pushTimer); push(true); }
+    else if (ready) { pull(); }
+  });
+  window.addEventListener('pagehide', function () { push(true); });
+  setInterval(function () { if (!document.hidden && ready) pull(); }, 60000);
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 /* FINANÇAS */
