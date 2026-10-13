@@ -1609,7 +1609,7 @@ const TREINOS = {
 };
 const DIA_TREINO_MAP={1:'muscu1',2:'corrida1',3:'muscu2',4:'corrida2',5:'muscu3',6:null,0:null};
 function getTreinoKey(diasemana){const map={1:1,3:2,5:3};return map[diasemana]||null;}
-function dateKey(d){return d.toISOString().split('T')[0];}
+function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function getWeekDates(){const today=new Date();const dow=today.getDay();const monday=new Date(today);monday.setDate(today.getDate()-(dow===0?6:dow-1));const days=[];for(let i=0;i<7;i++){const d=new Date(monday);d.setDate(monday.getDate()+i);days.push(d);}return days;}
 function getTreinoStreak(){let streak=0;const check=new Date();while(true){const k=dateKey(check);const v=treinoData[k];if(v&&v!=='descanso'){streak++;check.setDate(check.getDate()-1);}else break;}return streak;}
 function getTreinoMesCount(){const now=new Date();const year=now.getFullYear();const month=now.getMonth();let count=0;Object.entries(treinoData).forEach(([k,v])=>{const d=new Date(k+'T12:00:00');if(d.getFullYear()===year&&d.getMonth()===month&&v&&v!=='descanso')count++;});return count;}
@@ -2043,6 +2043,19 @@ function salvarCorrida(dataKey){
 }
 
 /* ======= VOLUME SEMANAL ======= */
+function getDiasEstimados(sessoesSem){
+  const lista = [];
+  getWeekDates().forEach(d => {
+    const key = dateKey(d);
+    const tipo = treinoData[key];
+    if(tipo !== 'musculacao' && tipo !== 'ambos') return;
+    if(sessoesSem.some(s => s.tipo !== 'corrida' && s.data === key)) return;
+    const n = getTreinoKey(d.getDay());
+    lista.push({key, dia:n, plano:n ? TREINOS_PLAN[n] : null});
+  });
+  return lista;
+}
+
 function calcVolumeSemana(){
   const semDatas = getWeekDates().map(d => dateKey(d));
   const sessoes = getTreinoSessoes();
@@ -2067,6 +2080,16 @@ function calcVolumeSemana(){
       });
     });
   });
+  // dias marcados como musculação no calendário, sem sessão registrada: conta o treino planejado (estimado)
+  getDiasEstimados(sessoesSem).forEach(({plano}) => {
+    if(!plano) return;
+    plano.exercicios.forEach(ex => ex.grupos.forEach(g => {
+      if(!grupos[g]) grupos[g] = {nominal:0, efetivas:0};
+      grupos[g].nominal += ex.series;
+      grupos[g].est = (grupos[g].est||0) + ex.series;
+      if(ex.tecnica && ex.tecnica !== 'SS') grupos[g].efetivas += 1;
+    }));
+  });
   // normalizar: efetivas = nominal + bônus de técnica
   Object.keys(grupos).forEach(g => {
     grupos[g].efetivas = grupos[g].nominal + (grupos[g].efetivas||0);
@@ -2088,7 +2111,7 @@ function renderVolumeSemanal(){
     html += `<div class="vol-grupo-row ${abaixo?'abaixo':''}">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:12px;font-weight:600">${g}</span>
-        <span style="font-size:11px;color:var(--text3)">${d.nominal} <span style="color:var(--accent-text)">(${d.efetivas} ef.)</span> / ${meta.min}–${meta.max}</span>
+        <span style="font-size:11px;color:var(--text3)">${d.nominal} <span style="color:var(--accent-text)">(${d.efetivas} ef.)</span>${d.est?` <span style="color:var(--text3)">· ${d.est} est.</span>`:''} / ${meta.min}–${meta.max}</span>
       </div>
       <div class="vol-bar-wrap"><div class="vol-bar-track"><div class="vol-bar-fill" style="width:${pct}%;background:${cor}"></div></div></div>
       ${abaixo?`<div style="font-size:10px;color:var(--warning-text);margin-top:2px">⚠ abaixo da meta</div>`:''}
@@ -2101,8 +2124,13 @@ function renderVolumeSemanal(){
   if(!histEl) return;
   const semDatas = getWeekDates().map(d => dateKey(d));
   const sessoes = getTreinoSessoes().filter(s => semDatas.includes(s.data));
-  if(!sessoes.length){ histEl.innerHTML='<div class="empty">sem sessões registradas esta semana</div>';return;}
-  histEl.innerHTML = [...sessoes].reverse().map(s => {
+  const estimados = getDiasEstimados(sessoes);
+  const fmt = k => k.split('-').reverse().join('/');
+  const estHtml = estimados.map(e => e.plano
+    ? `<div class="sess-hist-item"><span>💪 ${e.plano.nome}</span><span>${fmt(e.key)} · estimado (sem registro)</span></div>`
+    : `<div class="sess-hist-item"><span>💪 Musculação</span><span>${fmt(e.key)} · fora de seg/qua/sex, não contado</span></div>`).join('');
+  if(!sessoes.length && !estimados.length){ histEl.innerHTML='<div class="empty">sem sessões registradas esta semana</div>';return;}
+  histEl.innerHTML = estHtml + [...sessoes].reverse().map(s => {
     if(s.tipo==='corrida'){
       return `<div class="sess-hist-item"><span>🏃 ${s.subtipo||'corrida'}</span><span>${s.data.split('-').reverse().join('/')} · ${s.dur}min · ${s.dist}km</span></div>`;
     }
