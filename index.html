@@ -1208,9 +1208,10 @@ input:focus,select:focus{border-color:var(--accent)}
       </div>
       <div class="fg"><label class="fl">título</label><input type="text" id="agd-titulo" placeholder="ex: Consulta médica, Prova de Fisiologia..."></div>
       <div class="fr">
-        <div class="fg"><label class="fl">data</label><input type="date" id="agd-data"></div>
-        <div class="fg"><label class="fl">hora (opcional)</label><input type="time" id="agd-hora"></div>
+        <div class="fg"><label class="fl">data de início</label><input type="date" id="agd-data" onchange="agdAjustaFim()"></div>
+        <div class="fg"><label class="fl">data de fim (opcional)</label><input type="date" id="agd-fim"></div>
       </div>
+      <div class="fg"><label class="fl">hora (opcional)</label><input type="time" id="agd-hora"></div>
       <div class="fg"><label class="fl">local / obs (opcional)</label><input type="text" id="agd-obs" placeholder="ex: Policlínica, sala 3..."></div>
       <div class="fg"><label class="fl">categoria</label>
         <div class="agd-cats-row" id="agd-cat-chips"></div>
@@ -3468,6 +3469,10 @@ function notaEditar(id,texto){
 }
 
 /* ===== AGENDA ===== */
+function agdFimDe(e){return (e.fim&&e.fim>e.data)?e.fim:e.data;}
+function agdOcorre(e,key){return e.data<=key&&key<=agdFimDe(e);}
+function agdFmtPeriodo(e){const f=k=>k.slice(8,10)+'/'+k.slice(5,7);return agdFimDe(e)>e.data?f(e.data)+' a '+f(agdFimDe(e)):'';}
+function agdAjustaFim(){const d=document.getElementById('agd-data').value,f=document.getElementById('agd-fim');if(f.value&&d&&f.value<d)f.value='';f.min=d;}
 function getEventos(){try{return JSON.parse(localStorage.getItem('agdEventos')||'[]');}catch(e){return[];}}
 function saveEventos(e){localStorage.setItem('agdEventos',JSON.stringify(e));}
 
@@ -3559,7 +3564,8 @@ function renderAgdMes(){
   const label=MESES_FULL[agdMesAtual]+' '+agdAnoAtual;
   const el=document.getElementById('agd-mes-label');if(el)el.textContent=label;
   const prefixo=`${agdAnoAtual}-${String(agdMesAtual+1).padStart(2,'0')}-`;
-  const doMes=eventos.filter(e=>(e.data||'').startsWith(prefixo));
+  const iniMes=prefixo+'01',fimMes=prefixo+String(new Date(agdAnoAtual,agdMesAtual+1,0).getDate()).padStart(2,'0');
+  const doMes=eventos.filter(e=>e.data&&e.data<=fimMes&&agdFimDe(e)>=iniMes);
   const rs=document.getElementById('agd-resumo');if(rs)rs.innerHTML=agdResumoHtml(doMes);
   const firstDay=new Date(agdAnoAtual,agdMesAtual,1).getDay();
   const totalDays=new Date(agdAnoAtual,agdMesAtual+1,0).getDate();
@@ -3570,12 +3576,13 @@ function renderAgdMes(){
   for(let d=1;d<=totalDays;d++){
     const key=prefixo+String(d).padStart(2,'0');
     const isHoje=hoje.getFullYear()===agdAnoAtual&&hoje.getMonth()===agdMesAtual&&hoje.getDate()===d;
-    const dayEvts=agdFiltrar(doMes.filter(e=>e.data===key)).sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
+    const dayEvts=agdFiltrar(doMes.filter(e=>agdOcorre(e,key))).sort((a,b)=>(a.hora||'99:99').localeCompare(b.hora||'99:99'));
     const vis=dayEvts.slice(0,max),extra=dayEvts.length-vis.length;
     const chips=vis.map(e=>{
       const c=agdCatDe(e);
-      const tip=(e.hora?e.hora+' · ':'')+e.titulo+' ('+c.nome+')';
-      return `<div class="agd-chip" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.18)}" title="${escAgd(tip)}"><span class="agd-chip-t">${e.hora?`<b>${escAgd(e.hora.slice(0,5))}</b> `:''}${escAgd(e.titulo)}</span></div>`;
+      const cont=e.data<key;
+      const tip=(e.hora?e.hora+' · ':'')+e.titulo+' ('+c.nome+')'+(agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):'');
+      return `<div class="agd-chip" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.18)}" title="${escAgd(tip)}"><span class="agd-chip-t">${cont?'‹ ':''}${(!cont&&e.hora)?`<b>${escAgd(e.hora.slice(0,5))}</b> `:''}${escAgd(e.titulo)}</span></div>`;
     }).join('')+(extra>0?`<div class="agd-more">+${extra} mais</div>`:'');
     html+=`<div class="agd-cell${isHoje?' agd-hoje':''}${agdDiaSel===key?' agd-sel':''}" onclick="agdSelectDia('${key}')"><div class="agd-cell-num">${d}</div>${chips}</div>`;
   }
@@ -3591,15 +3598,15 @@ function renderAgdSemana(){
   const el=document.getElementById('agd-mes-label');
   if(el)el.textContent=a.getMonth()===b.getMonth()?`${a.getDate()}–${b.getDate()} de ${MESES_FULL[a.getMonth()].toLowerCase()} de ${b.getFullYear()}`:`${a.getDate()} ${mA} – ${b.getDate()} ${mB} ${b.getFullYear()}`;
   const chaves=dias.map(agdKey);
-  const semana=getEventos().filter(e=>chaves.includes(e.data));
+  const semana=getEventos().filter(e=>chaves.some(k=>agdOcorre(e,k)));
   const rs=document.getElementById('agd-resumo');if(rs)rs.innerHTML=agdResumoHtml(semana);
   const hojeKey=agdKey(new Date());
   const html=dias.map((d,i)=>{
     const key=chaves[i];
-    const evs=agdFiltrar(semana.filter(e=>e.data===key)).sort((x,y)=>(x.hora||'99:99').localeCompare(y.hora||'99:99'));
+    const evs=agdFiltrar(semana.filter(e=>agdOcorre(e,key))).sort((x,y)=>(x.hora||'99:99').localeCompare(y.hora||'99:99'));
     const corpo=evs.length?evs.map(e=>{
       const c=agdCatDe(e);
-      return `<div class="agd-sem-ev" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.16)}"><button class="x" title="Excluir" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button><div class="t">${escAgd(e.titulo)}</div><div class="h">${e.hora?escAgd(e.hora):'Dia inteiro'}${e.obs?' · '+escAgd(e.obs):''}</div><span class="c">${escAgd(c.nome)}</span></div>`;
+      return `<div class="agd-sem-ev" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.16)}"><button class="x" title="Excluir" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button><div class="t">${escAgd(e.titulo)}</div><div class="h">${e.hora?escAgd(e.hora):'Dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+escAgd(e.obs):''}</div><span class="c">${escAgd(c.nome)}</span></div>`;
     }).join(''):'<div class="agd-sem-vazio">Sem eventos</div>';
     return `<div class="agd-sem-col${key===hojeKey?' agd-hoje':''}"><div class="agd-sem-hd" onclick="openAgdModal('${key}')" title="Adicionar evento"><span>${DIAS_NOME[d.getDay()]} ${d.getDate()}</span><small><i class="ti ti-plus"></i></small></div>${corpo}</div>`;
   }).join('');
@@ -3614,7 +3621,7 @@ function agdSelectDia(key){
 }
 
 function renderAgdDiaPanel(key){
-  const eventos=getEventos().filter(e=>e.data===key);
+  const eventos=getEventos().filter(e=>agdOcorre(e,key));
   const [y,m,d]=key.split('-');
   const dt=new Date(+y,+m-1,+d);
   const label=`${DIAS_NOME[dt.getDay()]}, ${+d} de ${MESES_FULL[+m-1]}`;
@@ -3628,7 +3635,7 @@ function renderAgdDiaPanel(key){
         <div class="agd-event-dot" style="background:${e.cor||'var(--accent)'}"></div>
         <div class="agd-event-info">
           <div class="agd-event-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${e.titulo}${catLabel}</div>
-          <div class="agd-event-time">${e.hora||'dia inteiro'}${e.obs?' · '+e.obs:''}</div>
+          <div class="agd-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div>
         </div>
         <button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
       </div>`;
@@ -3657,7 +3664,7 @@ function renderAgdProximos(){
     </div>`;
   }
   let eventos=getEventos()
-    .filter(e=>e.data>=hojeKey)
+    .filter(e=>agdFimDe(e)>=hojeKey)
     .sort((a,b)=>a.data.localeCompare(b.data)||(a.hora||'').localeCompare(b.hora||''));
   if(agdFiltCat)eventos=eventos.filter(e=>e.catId===agdFiltCat);
   if(!eventos.length){el.innerHTML=`<div class="empty">sem compromissos futuros${agdFiltCat?' nessa categoria':''}</div>`;return;}
@@ -3669,7 +3676,7 @@ function renderAgdProximos(){
       <div class="agd-event-dot" style="background:${e.cor||'var(--accent)'}"></div>
       <div class="agd-event-info">
         <div class="agd-event-title" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">${e.titulo}${catLabel}</div>
-        <div class="agd-event-time">${e.hora||'dia inteiro'}${e.obs?' · '+e.obs:''}</div>
+        <div class="agd-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div>
       </div>
       <button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
     </div>`;
@@ -3755,6 +3762,7 @@ function openAgdModal(diaKey){
   document.getElementById('agd-titulo').value='';
   document.getElementById('agd-data').value=diaKey||dateKey(new Date());
   document.getElementById('agd-hora').value='';
+  document.getElementById('agd-fim').value='';
   document.getElementById('agd-obs').value='';
   document.getElementById('agd-edit-id').value='';
   agdSelectedCatId=null;
@@ -3767,6 +3775,7 @@ function saveAgdEvento(){
   const data=document.getElementById('agd-data').value;
   if(!titulo||!data)return;
   const hora=document.getElementById('agd-hora').value;
+  let fim=document.getElementById('agd-fim').value;if(fim&&fim<=data)fim='';
   const obs=document.getElementById('agd-obs').value.trim();
   const cats=getCats();
   const cat=cats.find(c=>c.id===agdSelectedCatId);
@@ -3774,7 +3783,7 @@ function saveAgdEvento(){
   const catId=agdSelectedCatId||null;
   const catNome=cat?cat.nome:null;
   const eventos=getEventos();
-  eventos.push({id:'e'+Date.now(),titulo,data,hora,obs,cor,catId,catNome});
+  eventos.push({id:'e'+Date.now(),titulo,data,fim,hora,obs,cor,catId,catNome});
   saveEventos(eventos);
   closeAgdModal();
   agdDiaSel=data;
@@ -3791,7 +3800,7 @@ function deleteAgdEvento(id){
 function renderInicioAgenda(){
   const hoje=new Date();
   const hojeKey=dateKey(hoje);
-  const eventos=getEventos().filter(e=>e.data>=hojeKey).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,5);
+  const eventos=getEventos().filter(e=>agdFimDe(e)>=hojeKey).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,5);
   if(!eventos.length)return'';
   let html=`<div class="card"><div class="ctitle"><i class="ti ti-calendar"></i>próximos compromissos</div>`;
   eventos.forEach(e=>{
@@ -3799,7 +3808,7 @@ function renderInicioAgenda(){
     html+=`<div class="prox-event">
       <div class="prox-event-date"><div class="prox-event-day">${+d}</div><div class="prox-event-mes">${MESES_FULL[+m-1].slice(0,3)}</div></div>
       <div class="prox-event-dot" style="background:${e.cor||'var(--accent)'}"></div>
-      <div class="prox-event-info"><div class="prox-event-title">${e.titulo}</div><div class="prox-event-time">${e.hora||'dia inteiro'}${e.obs?' · '+e.obs:''}</div></div>
+      <div class="prox-event-info"><div class="prox-event-title">${e.titulo}</div><div class="prox-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div></div>
     </div>`;
   });
   html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('agenda',document.querySelectorAll('.mn')[6]);showAgdScreen('proximos',document.querySelectorAll('#nav-agenda .nb')[1])"><i class="ti ti-calendar"></i>ver todos</button></div>`;
