@@ -1332,6 +1332,8 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
         <div class="fg"><label class="fl">data de fim (opcional)</label><input type="date" id="agd-fim"></div>
       </div>
       <div class="fg"><label class="fl">hora (opcional)</label><input type="time" id="agd-hora"></div>
+      <div class="fg"><label class="fl">lembrete (notificação no app do celular)</label>
+        <select id="agd-lem"><option value="-1">sem notificação</option><option value="0">na hora (sem hora: 8h do dia)</option><option value="10">10 minutos antes</option><option value="30">30 minutos antes</option><option value="60">1 hora antes</option><option value="1440">1 dia antes (mesma hora; sem hora: 8h)</option><option value="2880">2 dias antes</option></select></div>
       <div class="fg"><label class="fl">local / obs (opcional)</label><input type="text" id="agd-obs" placeholder="ex: Policlínica, sala 3..."></div>
       <div class="fg"><label class="fl">categoria</label>
         <div class="agd-cats-row" id="agd-cat-chips"></div>
@@ -1423,6 +1425,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
               <input type="date" id="ftodo-data" style="flex:1">
             </div>
             <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2)"><input type="checkbox" id="ftodo-agd" checked style="width:auto;margin:0">mostrar na agenda (se tiver data)</label>
+            <select id="ftodo-lem"><option value="1440">avisar 1 dia antes (8h)</option><option value="0">avisar no dia (8h)</option><option value="2880">avisar 2 dias antes</option><option value="10080">avisar 1 semana antes</option><option value="-1">sem notificação</option></select>
             <button class="btn bp" style="margin-top:0" onclick="saveFacTodoGeral()"><i class="ti ti-plus"></i>adicionar</button>
           </div>
           <div id="ftodo-lista"></div>
@@ -3983,6 +3986,7 @@ function openAgdModal(diaKey,base){
   document.getElementById('agd-hora').value=base?(base.hora||''):'';
   document.getElementById('agd-fim').value=base&&base.fim?base.fim:'';
   document.getElementById('agd-obs').value=base?(base.obs||''):'';
+  document.getElementById('agd-lem').value=String(base&&base.lem!=null?base.lem:-1);
   document.getElementById('agd-edit-id').value='';
   document.getElementById('agd-modal-title').textContent=base?'Duplicar evento':'Novo Evento';
   document.getElementById('agd-rep').value='';
@@ -4002,6 +4006,7 @@ function saveAgdEvento(){
   const hora=document.getElementById('agd-hora').value;
   let fim=document.getElementById('agd-fim').value;if(fim&&fim<=data)fim='';
   const obs=document.getElementById('agd-obs').value.trim();
+  const lem=parseInt(document.getElementById('agd-lem').value);
   const cats=getCats();
   const cat=cats.find(c=>c.id===agdSelectedCatId);
   const cor=cat?cat.cor:'#7c6bef';
@@ -4014,6 +4019,7 @@ function saveAgdEvento(){
   const t0=Date.now();
   datas.forEach((k,i)=>{
     const ev={id:'e'+t0+(i?'_'+i:''),titulo,data:k,fim:span?addDays(k,span):'',hora,obs,cor,catId,catNome};
+    if(lem>=0)ev.lem=lem;
     if(serie)ev.serie=serie;
     eventos.push(ev);
   });
@@ -4026,6 +4032,15 @@ function saveAgdEvento(){
 function agdConcluiTodo(id){
   toggleFacTodoGeral(id.slice(5));
   renderAgdCal();renderAgdProximos();renderInicio();
+}
+const LEM_TODO=[1440,0,2880,10080,-1];
+function lemRot(v){v=(v==null?1440:v);return v<0?'sem notificação':v===0?'no dia, 8h':v===1440?'1 dia antes, 8h':v===2880?'2 dias antes, 8h':v===10080?'1 semana antes, 8h':v+' min antes';}
+function ciclaLemTodo(id){
+  const l=getFacTodoGeral();const t=l.find(x=>x.id===id);if(!t)return;
+  const atual=(t.lem==null?1440:t.lem);const i=LEM_TODO.indexOf(atual);
+  t.lem=LEM_TODO[(i+1)%LEM_TODO.length];
+  saveFacTodoGeralData(l);renderFacTodoGeral();
+  if(typeof toast==='function')toast('Lembrete: '+lemRot(t.lem));
 }
 function toggleFacTodoAgd(id){
   const l=getFacTodoGeral();const t=l.find(x=>x.id===id);if(!t)return;
@@ -4869,7 +4884,7 @@ function saveFacTodoGeral(){
   const cad=document.getElementById('ftodo-cad').value;
   const data=document.getElementById('ftodo-data').value;
   const lista=getFacTodoGeral();
-  lista.push({id:'ftg'+Date.now(),nome,cad,data,done:false,agd:(document.getElementById('ftodo-agd')||{checked:true}).checked,ts:Date.now()});
+  lista.push({id:'ftg'+Date.now(),nome,cad,data,done:false,agd:(document.getElementById('ftodo-agd')||{checked:true}).checked,lem:parseInt((document.getElementById('ftodo-lem')||{value:'1440'}).value),ts:Date.now()});
   saveFacTodoGeralData(lista);
   document.getElementById('ftodo-nome').value='';
   document.getElementById('ftodo-data').value='';
@@ -4915,6 +4930,7 @@ function renderFacTodoGeral(){
           ${dataFmt?`<span style="${atrasado?'color:var(--danger-text);font-weight:600':''}">📅 ${dataFmt}</span>`:''}
         </div>
       </div>
+      ${t.data&&!t.done?`<button class="ftodo-del" title="Lembrete: ${lemRot(t.lem)} (tocar para mudar)" style="color:${(t.lem==null?1440:t.lem)>=0?'var(--accent)':'var(--text3)'}" onclick="ciclaLemTodo('${t.id}')"><i class="ti ti-bell${(t.lem==null?1440:t.lem)>=0?'-ringing':'-off'}"></i></button>`:''}
       ${t.data?`<button class="ftodo-del" title="${t.agd!==false?'Na agenda (tocar para tirar)':'Fora da agenda (tocar para mostrar)'}" style="color:${t.agd!==false?'var(--accent)':'var(--text3)'}" onclick="toggleFacTodoAgd('${t.id}')"><i class="ti ti-calendar${t.agd!==false?'-check':'-off'}"></i></button>`:''}
       <button class="ftodo-del" onclick="deleteFacTodoGeral('${t.id}')"><i class="ti ti-trash"></i></button>
     </div>`;
