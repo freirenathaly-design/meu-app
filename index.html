@@ -860,7 +860,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
           <div class="metric"><div class="mlabel">total dívidas</div><div class="mval r" id="div-total">—</div></div>
           <div class="metric"><div class="mlabel">parcelas/mês</div><div class="mval a" id="div-mensal">—</div></div>
         </div>
-        <div id="div-lista"><div class="empty" style="padding:24px 0">carregando...</div></div>
+        <div id="div-aviso" style="font-size:11px;color:var(--text3);margin:0 0 8px"></div><div id="div-lista"><div class="empty" style="padding:24px 0">carregando...</div></div>
       </div>
       <div id="screen-hotmart" class="screen">
         <div class="g2">
@@ -1882,7 +1882,7 @@ function divAplica(n,pagas){
   const e=divEff().find(d=>d.nome===n);if(!e)return;
   pagas=Math.max(0,Math.min(e.total,pagas));
   const c=getDivCfg();c[n]={pagas,total:e.total,valorParc:e.valorParc,saldo:divSaldoCalc(n,pagas,e.valorParc)};
-  localStorage.setItem('dividasCfg',JSON.stringify(c));renderDividas();
+  localStorage.setItem('dividasCfg',JSON.stringify(c));renderDividas();divGrava(n);
 }
 function divMaisUma(n){const e=divEff().find(d=>d.nome===n);if(e)divAplica(n,e.pagas+1);}
 function divMenosUma(n){const e=divEff().find(d=>d.nome===n);if(e)divAplica(n,e.pagas-1);}
@@ -1905,9 +1905,26 @@ function divSalva(){
   const total=Math.max(1,parseInt(document.getElementById('div-m-total').value)||1);
   const pagas=Math.max(0,Math.min(total,parseInt(document.getElementById('div-m-pagas').value)||0));
   const c=getDivCfg();c[divNome]={pagas,total,valorParc:orcNum(document.getElementById('div-m-parc').value),saldo:Math.max(0,orcNum(document.getElementById('div-m-saldo').value))};
-  localStorage.setItem('dividasCfg',JSON.stringify(c));divFecha();renderDividas();
+  localStorage.setItem('dividasCfg',JSON.stringify(c));const nn=divNome;divFecha();renderDividas();divGrava(nn);
 }
-function divRestaura(){if(!divNome)return;const c=getDivCfg();delete c[divNome];localStorage.setItem('dividasCfg',JSON.stringify(c));divFecha();renderDividas();}
+function divRestaura(){if(!divNome)return;const c=getDivCfg();delete c[divNome];localStorage.setItem('dividasCfg',JSON.stringify(c));divFecha();renderDividas();divCarrega();}
+async function divCarrega(){
+  try{
+    const rows=await fetchSheet('Dívidas!A1:H40');
+    const n=x=>typeof x==='number'?x:orcNum(x);const lista=[];
+    rows.slice(1).forEach(r=>{const nome=String(r[0]||'').trim();if(!nome)return;
+      lista.push({nome,tipo:String(r[1]||'').trim()||'Outros',total:n(r[2]),pagas:n(r[3]),valorParc:n(r[4]),venc:String(r[5]||'').trim(),saldo:n(r[6]),obs:String(r[7]||'').trim()});});
+    if(lista.length)DIVIDAS=lista;
+    renderDividas();
+  }catch(e){}
+}
+async function divGrava(n){
+  const e=divEff().find(d=>d.nome===n);if(!e)return;
+  const r=await planilhaChama({action:'setDivida',nome:n,total:String(e.total),pagas:String(e.pagas),valorParc:String(e.valorParc),saldo:String(e.saldo)},n);
+  const el=document.getElementById('div-aviso');
+  if(r.ok){const c=getDivCfg();delete c[n];localStorage.setItem('dividasCfg',JSON.stringify(c));await divCarrega();if(el)el.textContent='✅ "'+n+'" gravada na planilha.';}
+  else if(el)el.textContent=r.msg;
+}
 
 /* ===== PROJEÇÃO EDITÁVEL ===== */
 const PJ_MESES=[['OUT','outubro/2026'],['NOV','novembro/2026'],['DEZ','dezembro/2026']];
@@ -2021,7 +2038,7 @@ function orcAplica(cats){
   return Object.values(cats).reduce((a,d)=>a+d.plan,0);
 }
 function orcNum(v){const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?0:n;}
-function orcCampo(c,v){const o=getOrc(),mm=orcMes(o,currentMonth);mm[c]=orcNum(v);saveOrc(o);renderOrc();}
+function orcCampo(c,v){const o=getOrc(),mm=orcMes(o,currentMonth);mm[c]=orcNum(v);const m=currentMonth;if(c==='sal'||c==='ext'){mm.pend=mm.pend||{};mm.pend[c]=mm[c];}saveOrc(o);renderOrc();if(c==='sal'||c==='ext')orcGravaEntrada(m,c,mm[c]);}
 function orcReserva(v){const o=getOrc();o.reserva=orcNum(v);saveOrc(o);renderOrc();}
 function renderOrc(){
   const el=document.getElementById('orc-sal');if(!el)return;
@@ -2037,7 +2054,7 @@ function renderOrc(){
   document.getElementById('orc-plan').textContent=ok?brl(plan):'toque em sincronizar';
   const sd=ent-plan,e=document.getElementById('orc-saldo');
   e.textContent=ok?((sd<0?'− ':'+ ')+brl(sd)):'—';e.className='rv '+(sd<0?'r':'g');
-  document.getElementById('orc-aviso').textContent='Os valores deste cartão e os planejados editados ficam salvos no app (sincronizam entre os aparelhos); a planilha do Google não é alterada.'+(mm.res>reserva?' Atenção: o valor usado da reserva é maior que o saldo dela.':'');
+  document.getElementById('orc-aviso').textContent='Saldo inicial (salário), renda extra e planejados são lidos e gravados na planilha; "usar da reserva" e o saldo da reserva ficam só no app.'+(orcUltimaMsg?' '+orcUltimaMsg:'')+(mm.res>reserva?' Atenção: o valor usado da reserva é maior que o saldo dela.':'');
 }
 function orcAbre(){document.getElementById('modal-orc').style.display='flex';}
 function orcFecha(){document.getElementById('modal-orc').style.display='none';orcEd=null;}
@@ -2063,29 +2080,79 @@ function orcEditar(i){
 function orcRefaz(){if(typeof syncAll==='function'&&window.__sheetOk!==false)syncAll();else renderOrc();}
 function orcSalvaItem(){
   const v=orcNum(document.getElementById('orc-m-plan').value);if(v<0)return;
-  const o=getOrc(),mm=orcMes(o,currentMonth);
+  const o=getOrc(),mm=orcMes(o,currentMonth);let novoX=null;
   if(orcEd&&orcEd.novo){
     const nome=document.getElementById('orc-m-nome').value.trim();if(!nome)return;
-    mm.ex.push({id:'x'+Date.now(),cat:document.getElementById('orc-m-cat').value,item:nome,plan:v});
+    novoX={id:'x'+Date.now(),cat:document.getElementById('orc-m-cat').value,item:nome,plan:v};mm.ex.push(novoX);
   }else if(orcEd&&orcEd.it){
     const it=orcEd.it;
     if(it.extra){const x=mm.ex.find(z=>z.id===it.xid);if(x){x.plan=v;const nome=document.getElementById('orc-m-nome').value.trim();if(nome)x.item=nome;}}
     else mm.ov[it.k]=v;
   }
-  saveOrc(o);orcFecha();orcRefaz();
+  saveOrc(o);
+  const it0=orcEd&&orcEd.it;orcFecha();
+  if(novoX){orcEnviaNovo(novoX);}else if(it0&&!it0.extra){orcGravaPlanilha(it0,v);}else orcRefaz();
 }
+let orcUltimaMsg='';
+function orcMsg(t){orcUltimaMsg=t;renderOrc();}
+function nrm(x){return String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
+async function planilhaChama(params,descr,force){
+  try{
+    const q=new URLSearchParams(params);if(force)q.set('force','1');
+    const d=await (await fetch(`${SCRIPT_URL}?${q}`)).json();
+    if(d.success)return {ok:true,d};
+    if(d.error==='formula'){
+      if(confirm('A célula de "'+descr+'" na planilha tem uma fórmula ('+d.formula+').\n\nSubstituir pelo valor novo?'))return planilhaChama(params,descr,true);
+      return {ok:false,msg:'Fórmula mantida na planilha; o valor novo ficou salvo só no app.'};
+    }
+    return {ok:false,msg:d.error==='Acao nao reconhecida'?'O script da planilha ainda não foi atualizado; o valor ficou salvo só no app.':'Não consegui gravar na planilha ('+d.error+'); o valor ficou salvo só no app.'};
+  }catch(e){return {ok:false,msg:'Sem conexão com a planilha; o valor ficou salvo só no app.'};}
+}
+async function orcGravaPlanilha(it,v){
+  const ocorr=orcItens.filter(x=>!x.extra&&x.cat===it.cat&&x.item===it.item).indexOf(it);
+  const r=await planilhaChama({action:'setPlanejado',aba:currentMonth,categoria:it.cat,subcategoria:it.item,ocorr:String(Math.max(0,ocorr)),valor:String(v)},it.item);
+  if(r.ok){const o=getOrc(),mm=orcMes(o,currentMonth);delete mm.ov[it.k];saveOrc(o);orcRefaz();orcMsg('✅ Planejado de "'+it.item+'" gravado na planilha.');}
+  else{orcRefaz();orcMsg(r.msg);}
+}
+async function orcEnviaNovo(x){
+  const m=currentMonth;
+  const r=await planilhaChama({action:'addPlanejado',aba:m,categoria:x.cat,item:x.item,valor:String(x.plan)},x.item);
+  if(r.ok){const o=getOrc(),mm=orcMes(o,m);mm.ex=mm.ex.filter(z=>z.id!==x.id);saveOrc(o);orcRefaz();orcMsg('✅ "'+x.item+'" criado na planilha.');}
+  else{orcRefaz();orcMsg(r.msg.replace('o valor ficou salvo só no app','o item ficou salvo só no app'));}
+}
+async function orcGravaEntrada(m,c,v){
+  const r=await planilhaChama({action:'setEntrada',aba:m,campo:c,valor:String(v)},c==='sal'?'saldo inicial':'renda extra');
+  const o=getOrc(),mm=orcMes(o,m);
+  if(r.ok){if(mm.pend)delete mm.pend[c];saveOrc(o);orcMsg('✅ '+(c==='sal'?'Saldo inicial':'Renda extra')+' gravado na planilha.');}
+  else orcMsg(r.msg);
+}
+async function orcLePlanilha(){
+  const m=currentMonth;
+  try{
+    const rows=await fetchSheet(`${m}!J1:M80`);
+    const o=getOrc(),mm=orcMes(o,m);let mudou=false;let sal=null,cc=null,ext=null;
+    rows.forEach(r=>{const l=nrm(r[1]);const v=r[3];const n=typeof v==='number'?v:((v===undefined||v==='')?null:orcNum(v));
+      if(l==='SALDOINICIAL'&&sal===null)sal=n;if(l==='SALDOINICIALCONTACORRENTE'&&cc===null)cc=n;if(l==='RENDAEXTRA'&&ext===null)ext=(n===null?0:n);});
+    const sv=(sal!==null?sal:cc),pend=mm.pend||{};
+    if(sv!==null&&pend.sal==null&&mm.sal!==sv){mm.sal=sv;mudou=true;}
+    if(ext!==null&&pend.ext==null&&mm.ext!==ext){mm.ext=ext;mudou=true;}
+    if(mudou)saveOrc(o);
+    renderOrc();
+  }catch(e){}
+}
+(function(){const o=window.syncAll;window.syncAll=async function(){await o.apply(this,arguments);await orcLePlanilha();};})();
 function orcRestaura(){if(!orcEd||!orcEd.it)return;const o=getOrc(),mm=orcMes(o,currentMonth);delete mm.ov[orcEd.it.k];saveOrc(o);orcFecha();orcRefaz();}
 function orcExcluiExtra(){if(!orcEd||!orcEd.it||!orcEd.it.extra)return;if(!confirm('Excluir este gasto planejado?'))return;const o=getOrc(),mm=orcMes(o,currentMonth);mm.ex=mm.ex.filter(z=>z.id!==orcEd.it.xid);saveOrc(o);orcFecha();orcRefaz();}
 document.addEventListener('DOMContentLoaded',()=>setTimeout(renderOrc,50));
 
-const DIVIDAS=[{nome:'Consignado Nubank',tipo:'Consignado',total:48,pagas:0,valorParc:1580.83,venc:'Folha/out',saldo:50000.00,obs:'início out/2026 — desconta em folha'},{nome:'Consignado Santander',tipo:'Consignado',total:96,pagas:52,valorParc:929.23,venc:'Folha',saldo:13253.49,obs:'50 parcelas adiantadas set/26'},{nome:'Boleto BB 1/60',tipo:'Boleto',total:60,pagas:3,valorParc:77.72,venc:'Dia 14',saldo:4506.76,obs:''},{nome:'Boleto BB 19/60',tipo:'Boleto',total:60,pagas:20,valorParc:159.15,venc:'Dia 29',saldo:6566.05,obs:''}];
+let DIVIDAS=[{nome:'Consignado Nubank',tipo:'Consignado',total:48,pagas:0,valorParc:1580.83,venc:'Folha/out',saldo:50000.00,obs:'início out/2026 — desconta em folha'},{nome:'Consignado Santander',tipo:'Consignado',total:96,pagas:52,valorParc:929.23,venc:'Folha',saldo:13253.49,obs:'50 parcelas adiantadas set/26'},{nome:'Boleto BB 1/60',tipo:'Boleto',total:60,pagas:3,valorParc:77.72,venc:'Dia 14',saldo:4506.76,obs:''},{nome:'Boleto BB 19/60',tipo:'Boleto',total:60,pagas:20,valorParc:159.15,venc:'Dia 29',saldo:6566.05,obs:''}];
 const CAT_KEYS=['INVESTIMENTO','MORADIA','TRANSPORTE','ALIMENTAÇÃO','ALIMENTACAO','PESSOAL','APOLO','PAGAMENTOS'];
 const CAT_ICONS={'INVESTIMENTO':'💸','MORADIA':'🏠','TRANSPORTE':'🚗','ALIMENTAÇÃO':'🍽','ALIMENTACAO':'🍽','PESSOAL':'👤','APOLO':'🐾','PAGAMENTOS':'💳'};
 const brl=v=>isNaN(v)||v===null?'—':'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const parseBRL=s=>{if(!s)return 0;const c=s.toString().replace(/R\$\s*/,'').replace(/\s/g,'').replace(/\./g,'').replace(',','.');return parseFloat(c)||0;};
 function detectCat(text){if(!text)return null;const u=text.toUpperCase().replace(/[💸🏠🚗🍽👤🐾💳📈➕\s]/g,'');for(const k of CAT_KEYS){const ku=k.replace(/Ã/g,'A').replace(/Ç/g,'C');const uu=u.replace(/Ã/g,'A').replace(/Ç/g,'C');if(uu===k||uu===ku||u===k||u.includes(k)||uu.includes(ku))return k;}return null;}
 function onMonthChange(){currentMonth=document.getElementById('month-select').value;const cfg=MONTHS[currentMonth];const mes=cfg.label.split('/')[0].toLowerCase();document.getElementById('resumo-title').textContent=`resumo — ${mes}/${cfg.label.split('/')[1]}`;syncAll();}
-function showScreen(id,title,sub,btn){document.querySelectorAll('#mod-financas .screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('#nav-financas .nb').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');if(btn)btn.classList.add('active');document.getElementById('tt').textContent=title;document.getElementById('ts').textContent=sub;if(id==='projecao'){pjRender();setTimeout(initChart,50);}if(id==='dividas')renderDividas();if(id==='wishlist')renderWishlist();}
+function showScreen(id,title,sub,btn){document.querySelectorAll('#mod-financas .screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('#nav-financas .nb').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');if(btn)btn.classList.add('active');document.getElementById('tt').textContent=title;document.getElementById('ts').textContent=sub;if(id==='projecao'){pjRender();setTimeout(initChart,50);}if(id==='dividas'){renderDividas();divCarrega();}if(id==='wishlist')renderWishlist();}
 function showP(id,btn){['curto','reserva','medio','marcos'].forEach(k=>{const el=document.getElementById('proj-'+k);if(el)el.style.display=k===id?'block':'none';});document.querySelectorAll('#screen-projecao .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');if(id==='curto')setTimeout(initChart,50);pjRender();}
 async function fetchSheet(range,formatted=false){const render=formatted?'FORMATTED_VALUE':'UNFORMATTED_VALUE';const url=`${BASE}/${encodeURIComponent(range)}?key=${API_KEY}&valueRenderOption=${render}&dateTimeRenderOption=FORMATTED_STRING`;const res=await fetch(url);if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'HTTP '+res.status);}const d=await res.json();return d.values||[];}
 async function syncAll(){const btn=document.getElementById('sbtn');btn.classList.add('loading');document.getElementById('ts').textContent='sincronizando...';try{const m=currentMonth;const cfg=MONTHS[m];const[rows,saldoCell]=await Promise.all([fetchSheet(`${m}!B1:G100`),fetchSheet(cfg.saldo,true)]);processData(rows);if(saldoCell&&saldoCell[0]&&saldoCell[0][0]!==undefined){const raw=saldoCell[0][0];const saldo=typeof raw==='number'?raw:parseBRL(String(raw));if(!isNaN(saldo)){document.getElementById('m-saldo').textContent=brl(saldo);document.getElementById('m-saldo').className='mval '+(saldo>=0?'g':'r');}}document.getElementById('ts').textContent=MONTHS[currentMonth].label+' · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}catch(e){document.getElementById('ts').textContent='erro: '+e.message;document.getElementById('sheet-resumo').innerHTML=`<div class="alert ad"><i class="ti ti-alert-triangle"></i><span>erro ao carregar: ${e.message}</span></div>`;}btn.classList.remove('loading');}
