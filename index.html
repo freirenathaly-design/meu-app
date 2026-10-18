@@ -1216,6 +1216,27 @@ input:focus,select:focus{border-color:var(--accent)}
       <div class="fg"><label class="fl">categoria</label>
         <div class="agd-cats-row" id="agd-cat-chips"></div>
       </div>
+      <div class="fg"><label class="fl">repetir</label>
+        <select id="agd-rep" onchange="agdRepMudou()">
+          <option value="">Não repete</option>
+          <option value="1d">Todos os dias</option>
+          <option value="1w">Toda semana</option>
+          <option value="15d">A cada 15 dias</option>
+          <option value="1m">Todo mês</option>
+          <option value="custom">Personalizado...</option>
+        </select>
+      </div>
+      <div id="agd-rep-box" style="display:none">
+        <div class="fr" id="agd-rep-cfg" style="display:none">
+          <div class="fg"><label class="fl">a cada</label><input type="number" id="agd-rep-n" min="1" max="365" value="1" oninput="agdRepPrev()"></div>
+          <div class="fg"><label class="fl">período</label><select id="agd-rep-un" onchange="agdRepPrev()"><option value="d">dia(s)</option><option value="w">semana(s)</option><option value="m">mês(es)</option></select></div>
+        </div>
+        <div class="fr">
+          <div class="fg"><label class="fl">termina</label><select id="agd-rep-fim-tipo" onchange="agdRepMudou()"><option value="n">após N vezes</option><option value="d">em uma data</option></select></div>
+          <div class="fg"><label class="fl" id="agd-rep-fim-lbl">vezes (total)</label><input type="number" id="agd-rep-fim-n" min="2" max="200" value="4" oninput="agdRepPrev()"><input type="date" id="agd-rep-fim-d" style="display:none" onchange="agdRepPrev()"></div>
+        </div>
+        <div id="agd-rep-prev" style="font-size:12px;color:var(--text2);margin-bottom:6px"></div>
+      </div>
       <input type="hidden" id="agd-edit-id">
       <div style="display:flex;gap:8px;margin-top:14px">
         <button class="btn bghost" style="flex:1;margin-top:0" onclick="closeAgdModal()">cancelar</button>
@@ -3469,6 +3490,47 @@ function notaEditar(id,texto){
 }
 
 /* ===== AGENDA ===== */
+function agdSomaMes(key,k){const [y,m,d]=key.split('-').map(Number);const t=new Date(y,m-1+k,1,12);const ult=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(d,ult));return dateKey(t);}
+function agdRepCfg(){
+  const v=document.getElementById('agd-rep').value;
+  if(!v)return null;
+  let n,un;
+  if(v==='custom'){n=Math.max(1,parseInt(document.getElementById('agd-rep-n').value)||1);un=document.getElementById('agd-rep-un').value;}
+  else{n=parseInt(v);un=v.slice(-1);}
+  return {n,un};
+}
+function agdGeraDatas(data){
+  const c=agdRepCfg();if(!c)return [data];
+  const tipo=document.getElementById('agd-rep-fim-tipo').value;
+  const lim=tipo==='n'?Math.min(200,Math.max(2,parseInt(document.getElementById('agd-rep-fim-n').value)||2)):200;
+  const fimD=document.getElementById('agd-rep-fim-d').value;
+  const out=[];
+  for(let i=0;i<lim;i++){
+    const k=c.un==='m'?agdSomaMes(data,c.n*i):addDays(data,(c.un==='w'?7:1)*c.n*i);
+    if(tipo==='d'&&(!fimD||k>fimD))break;
+    out.push(k);
+  }
+  return out.length?out:[data];
+}
+function agdRepMudou(){
+  const v=document.getElementById('agd-rep').value;
+  document.getElementById('agd-rep-box').style.display=v?'block':'none';
+  document.getElementById('agd-rep-cfg').style.display=v==='custom'?'grid':'none';
+  const t=document.getElementById('agd-rep-fim-tipo').value;
+  document.getElementById('agd-rep-fim-n').style.display=t==='n'?'block':'none';
+  document.getElementById('agd-rep-fim-d').style.display=t==='d'?'block':'none';
+  document.getElementById('agd-rep-fim-lbl').textContent=t==='n'?'vezes (total)':'até a data';
+  agdRepPrev();
+}
+function agdRepPrev(){
+  const el=document.getElementById('agd-rep-prev');if(!el)return;
+  const data=document.getElementById('agd-data').value;
+  if(!document.getElementById('agd-rep').value||!data){el.textContent='';return;}
+  const l=agdGeraDatas(data);
+  const f=k=>k.slice(8,10)+'/'+k.slice(5,7)+'/'+k.slice(0,4);
+  el.textContent=l.length>1?`Serão criados ${l.length} eventos, de ${f(l[0])} até ${f(l[l.length-1])}.`:'Defina o término para criar as repetições.';
+}
+function agdDuplicar(id){const e=getEventos().find(x=>x.id===id);if(e)openAgdModal(e.data,e);}
 function agdFimDe(e){return (e.fim&&e.fim>e.data)?e.fim:e.data;}
 function agdOcorre(e,key){return e.data<=key&&key<=agdFimDe(e);}
 function agdFmtPeriodo(e){const f=k=>k.slice(8,10)+'/'+k.slice(5,7);return agdFimDe(e)>e.data?f(e.data)+' a '+f(agdFimDe(e)):'';}
@@ -3606,7 +3668,7 @@ function renderAgdSemana(){
     const evs=agdFiltrar(semana.filter(e=>agdOcorre(e,key))).sort((x,y)=>(x.hora||'99:99').localeCompare(y.hora||'99:99'));
     const corpo=evs.length?evs.map(e=>{
       const c=agdCatDe(e);
-      return `<div class="agd-sem-ev" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.16)}"><button class="x" title="Excluir" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button><div class="t">${escAgd(e.titulo)}</div><div class="h">${e.hora?escAgd(e.hora):'Dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+escAgd(e.obs):''}</div><span class="c">${escAgd(c.nome)}</span></div>`;
+      return `<div class="agd-sem-ev" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.16)}"><button class="x" title="Excluir" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button><button class="x" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button><div class="t">${escAgd(e.titulo)}</div><div class="h">${e.hora?escAgd(e.hora):'Dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+escAgd(e.obs):''}</div><span class="c">${escAgd(c.nome)}</span></div>`;
     }).join(''):'<div class="agd-sem-vazio">Sem eventos</div>';
     return `<div class="agd-sem-col${key===hojeKey?' agd-hoje':''}"><div class="agd-sem-hd" onclick="openAgdModal('${key}')" title="Adicionar evento"><span>${DIAS_NOME[d.getDay()]} ${d.getDate()}</span><small><i class="ti ti-plus"></i></small></div>${corpo}</div>`;
   }).join('');
@@ -3637,7 +3699,7 @@ function renderAgdDiaPanel(key){
           <div class="agd-event-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${e.titulo}${catLabel}</div>
           <div class="agd-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div>
         </div>
-        <button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
+        <button class="agd-event-del" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button><button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
       </div>`;
     });
   }
@@ -3678,7 +3740,7 @@ function renderAgdProximos(){
         <div class="agd-event-title" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">${e.titulo}${catLabel}</div>
         <div class="agd-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div>
       </div>
-      <button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
+      <button class="agd-event-del" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button><button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
     </div>`;
   }).join('');
 }
@@ -3758,14 +3820,20 @@ function deleteCategoria(id){
   renderCatChips();
 }
 
-function openAgdModal(diaKey){
-  document.getElementById('agd-titulo').value='';
+function openAgdModal(diaKey,base){
+  document.getElementById('agd-titulo').value=base?base.titulo:'';
   document.getElementById('agd-data').value=diaKey||dateKey(new Date());
-  document.getElementById('agd-hora').value='';
-  document.getElementById('agd-fim').value='';
-  document.getElementById('agd-obs').value='';
+  document.getElementById('agd-hora').value=base?(base.hora||''):'';
+  document.getElementById('agd-fim').value=base&&base.fim?base.fim:'';
+  document.getElementById('agd-obs').value=base?(base.obs||''):'';
   document.getElementById('agd-edit-id').value='';
-  agdSelectedCatId=null;
+  document.getElementById('agd-modal-title').textContent=base?'Duplicar evento':'Novo Evento';
+  document.getElementById('agd-rep').value='';
+  document.getElementById('agd-rep-fim-tipo').value='n';
+  document.getElementById('agd-rep-fim-n').value=4;document.getElementById('agd-rep-fim-d').value='';
+  document.getElementById('agd-rep-n').value=1;document.getElementById('agd-rep-un').value='w';
+  agdRepMudou();
+  agdSelectedCatId=base?(base.catId||null):null;
   renderCatChips();
   document.getElementById('modal-agenda').style.display='flex';
 }
@@ -3783,7 +3851,15 @@ function saveAgdEvento(){
   const catId=agdSelectedCatId||null;
   const catNome=cat?cat.nome:null;
   const eventos=getEventos();
-  eventos.push({id:'e'+Date.now(),titulo,data,fim,hora,obs,cor,catId,catNome});
+  const datas=agdGeraDatas(data);
+  const span=fim?Math.round((new Date(fim+'T12:00')-new Date(data+'T12:00'))/864e5):0;
+  const serie=datas.length>1?'s'+Date.now():null;
+  const t0=Date.now();
+  datas.forEach((k,i)=>{
+    const ev={id:'e'+t0+(i?'_'+i:''),titulo,data:k,fim:span?addDays(k,span):'',hora,obs,cor,catId,catNome};
+    if(serie)ev.serie=serie;
+    eventos.push(ev);
+  });
   saveEventos(eventos);
   closeAgdModal();
   agdDiaSel=data;
@@ -3791,7 +3867,13 @@ function saveAgdEvento(){
   renderInicio();
 }
 function deleteAgdEvento(id){
-  saveEventos(getEventos().filter(e=>e.id!==id));
+  const todos=getEventos();const ev=todos.find(e=>e.id===id);
+  const irmaos=ev&&ev.serie?todos.filter(e=>e.serie===ev.serie).length:0;
+  if(irmaos>1){
+    if(confirm('Este evento se repete ('+irmaos+' ocorrências).\n\nOK = excluir TODA a série\nCancelar = outras opções'))saveEventos(todos.filter(e=>e.serie!==ev.serie));
+    else if(confirm('Excluir somente este evento?'))saveEventos(todos.filter(e=>e.id!==id));
+    else return;
+  }else saveEventos(todos.filter(e=>e.id!==id));
   if(agdDiaSel)renderAgdDiaPanel(agdDiaSel);
   renderAgdProximos();
   renderInicio();
