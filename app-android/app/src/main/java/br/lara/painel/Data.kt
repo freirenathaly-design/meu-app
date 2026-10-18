@@ -26,6 +26,39 @@ object Data {
 
     fun hasToken(c: Context) = !prefs(c).getString("token", null).isNullOrBlank()
 
+    fun mesOffset(c: Context) = prefs(c).getInt("mesOffset", 0)
+    fun setMesOffset(c: Context, v: Int) = prefs(c).edit().putInt("mesOffset", v).apply()
+
+    private fun cor(s: String, padrao: Int): Int = try { android.graphics.Color.parseColor(s) } catch (_: Exception) { padrao }
+
+    /** Eventos da agenda e to-dos marcados para a agenda, dentro do intervalo exibido. */
+    fun itensCalendario(c: Context, de: String, ate: String): List<Item> {
+        val out = ArrayList<Item>()
+        try {
+            val arr = JSONArray(prefs(c).getString("agdEventos", "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val data = o.optString("data")
+                if (data.isEmpty()) continue
+                val fim = o.optString("fim").let { if (it.isEmpty() || it < data) data else it }
+                if (fim < de || data > ate) continue
+                out.add(Item(o.optString("titulo"), data, fim, cor(o.optString("cor", "#5B4ED1"), 0xFF5B4ED1.toInt())))
+            }
+        } catch (_: Exception) { }
+        try {
+            val arr = JSONArray(prefs(c).getString("facTodoGeral", "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (o.optBoolean("done", false)) continue
+                if (o.has("agd") && !o.optBoolean("agd", true)) continue
+                val data = o.optString("data")
+                if (data.isEmpty() || data < de || data > ate) continue
+                out.add(Item("\u2610 " + o.optString("nome"), data, data, 0xFFE08A1E.toInt()))
+            }
+        } catch (_: Exception) { }
+        return out
+    }
+
     fun lastUpdate(c: Context) = prefs(c).getLong("updated", 0L)
 
     /** Busca os dados na nuvem. Devolve null se deu certo ou uma mensagem de erro curta. */
@@ -47,7 +80,7 @@ object Data {
             val body = con.inputStream.bufferedReader().use { it.readText() }
             val all = JSONObject(body)
             val ed = prefs(c).edit()
-            for (k in listOf("agdEventos", "notas")) {
+            for (k in listOf("agdEventos", "notas", "facTodoGeral")) {
                 val o = all.optJSONObject(k)
                 if (o != null) ed.putString(k, o.optString("v", "[]"))
             }
