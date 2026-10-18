@@ -12,7 +12,7 @@
         <TextView android:id="@+id/nrefresh" android:layout_width="32dp" android:layout_height="32dp"
             android:gravity="center" android:text="↻" android:textSize="20sp" android:textColor="@color/widget_accent" />
     </LinearLayout>
-    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/widget_line" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="1dp" android:background="@color/widget_line" />
 
     <LinearLayout android:id="@+id/nr0" android:layout_width="match_parent" android:layout_height="wrap_content"
         android:orientation="horizontal" android:paddingTop="5dp" android:paddingBottom="5dp" android:visibility="gone">
