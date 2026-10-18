@@ -85,6 +85,7 @@ object Data {
                 if (o != null) ed.putString(k, o.optString("v", "[]"))
             }
             ed.putLong("updated", System.currentTimeMillis()).apply()
+            try { Notif.agendar(c) } catch (_: Exception) { }
             null
         } catch (e: Exception) {
             "Sem conexão"
