@@ -795,15 +795,9 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <div id="screen-resumo" class="screen active">
         <div id="orc-status" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px"></div>
         <span id="m-saldo" style="display:none"></span><span id="resumo-title" style="display:none"></span><span id="orc-mes" style="display:none"></span>
+        <div id="mes-rec"></div>
         <div class="card" id="mes-hero"><div class="empty">toque em sincronizar</div></div>
         <button class="btn bp" style="margin:0 0 10px" onclick="lancAbre()"><i class="ti ti-plus"></i>lançar um gasto</button>
-        <div class="card" id="orc-card">
-          <div class="ctitle"><i class="ti ti-cash"></i>quanto vou receber</div>
-          <div class="orc-row"><label for="orc-sal">salário do mês</label><input type="number" id="orc-sal" step="0.01" inputmode="decimal" onchange="orcCampo('sal',this.value)"></div>
-          <div class="orc-row"><label for="orc-ext">renda extra</label><input type="number" id="orc-ext" step="0.01" inputmode="decimal" onchange="orcCampo('ext',this.value)"></div>
-          <details style="margin-top:4px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">saldo inicial da conta corrente</summary>
-            <div class="orc-row"><label for="orc-cc">saldo inicial conta corrente</label><input type="number" id="orc-cc" step="0.01" inputmode="decimal" onchange="orcCampo('cc',this.value)"></div></details>
-        </div>
         <div class="sec-hdr" style="margin:14px 0 6px">gastos por categoria <span style="text-transform:none;letter-spacing:0;font-weight:400">— toque para abrir</span></div>
         <div id="mes-cats"></div>
         <div id="mes-consig"></div>
@@ -2065,7 +2059,7 @@ function orcNum(v){const n=parseFloat(String(v).replace(',','.'));return isNaN(n
 function orcCampo(c,v){const o=getOrc(),mm=orcMes(o,currentMonth);mm[c]=orcNum(v);const m=currentMonth;if(c==='sal'||c==='ext'||c==='cc'){mm.pend=mm.pend||{};mm.pend[c]=mm[c];}saveOrc(o);renderOrc();if(c==='sal'||c==='ext'||c==='cc')orcGravaEntrada(m,c,mm[c]);}
 function orcReserva(v){const o=getOrc();o.reserva=orcNum(v);saveOrc(o);renderOrc();}
 function renderOrc(){
-  const el=document.getElementById('orc-sal');if(!el)return;
+  const el=document.getElementById('orc-mes');if(!el)return;
   const o=getOrc(),mm=orcMes(o,currentMonth),sh=window.__sh||{};
   const set=(id,v)=>{const e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=v?String(Math.round(v*100)/100):(v===0?'0':'');};
   set('orc-sal',mm.sal);set('orc-ext',mm.ext);set('orc-res',mm.res);
@@ -2199,6 +2193,32 @@ function orcExcluiExtra(){if(!orcEd||!orcEd.it||!orcEd.it.extra)return;if(!confi
 /* ===== PÁGINA MÊS ===== */
 const MES_NOME={SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro'};
 let mesAberto={};
+
+/* receitas */
+function recNorm(mm){mm.rec=mm.rec||[];const t=mm.rec.reduce((a,x)=>a+(x.v||0),0);if(Math.abs(t-(mm.ext||0))>0.004)mm.rec=(mm.ext>0)?[{n:'',v:mm.ext}]:[];}
+function recTot(mm){return mm.rec.reduce((a,x)=>a+(x.v||0),0);}
+function recAdd(){const o=getOrc(),mm=orcMes(o,currentMonth);recNorm(mm);mm.rec.push({n:'',v:0});saveOrc(o);mesAberto.__rec=true;renderMes();}
+function recSet(i,f,val){const o=getOrc(),mm=orcMes(o,currentMonth);recNorm(mm);if(!mm.rec[i])return;if(f==='n'){mm.rec[i].n=String(val).trim();saveOrc(o);return;}mm.rec[i].v=orcNum(val);saveOrc(o);orcCampo('ext',recTot(mm));}
+function recDel(i){const o=getOrc(),mm=orcMes(o,currentMonth);recNorm(mm);mm.rec.splice(i,1);saveOrc(o);orcCampo('ext',recTot(mm));}
+function renderRec(mm,sal,ext){
+  const el=document.getElementById('mes-rec');if(!el)return;
+  if(document.activeElement&&el.contains(document.activeElement))return;
+  recNorm(mm);
+  const ab=mesAberto.__rec!==false;
+  const cc=(mm.cc!=null?mm.cc:((window.__sh&&window.__sh.salCC!=null)?window.__sh.salCC:sal));
+  const inp='style="width:110px;text-align:right"';
+  const linhas=mm.rec.map((r,i)=>`<div class="orc-row" style="gap:6px"><input type="text" placeholder="outra receita (opcional)" value="${String(r.n||'').replace(/"/g,'&quot;')}" onchange="recSet(${i},'n',this.value)" style="flex:1;min-width:0;text-align:left"><input type="number" step="0.01" inputmode="decimal" placeholder="0,00" value="${r.v?r.v:''}" onchange="recSet(${i},'v',this.value)" ${inp}><button onclick="recDel(${i})" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer">✕</button></div>`).join('');
+  el.innerHTML=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
+    <div onclick="mesAberto.__rec=!(mesAberto.__rec!==false);renderMes()" style="padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600"><span>💰 Receitas</span><span style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:400;color:var(--success-text)">${brl(sal+ext)}</span><i class="ti ti-chevron-${ab?'up':'down'}" style="color:var(--text3)"></i></span></div>
+    ${ab?`<div style="border-top:.5px solid var(--border);padding:6px 14px 12px">
+      <div class="orc-row"><label for="orc-sal">Salário</label><input type="number" id="orc-sal" step="0.01" inputmode="decimal" placeholder="0,00" value="${sal||''}" onchange="orcCampo('sal',this.value)" ${inp}></div>
+      ${linhas}
+      <button class="orc-ed" style="margin:6px 0 0" onclick="recAdd()">+ adicionar receita</button>
+      <details style="margin-top:8px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">saldo inicial da conta corrente</summary>
+        <div class="orc-row"><label for="orc-cc">conta corrente</label><input type="number" id="orc-cc" step="0.01" inputmode="decimal" value="${cc||''}" onchange="orcCampo('cc',this.value)" ${inp}></div></details>
+    </div>`:''}
+  </div>`;
+}
 function mesToggle(k){mesAberto[k]=!mesAberto[k];renderMes();}
 function lancAbre(cat){
   document.getElementById('modal-lanc').style.display='flex';
@@ -2222,7 +2242,7 @@ function renderMes(){
   const hero=document.getElementById('mes-hero');if(!hero)return;
   const catsEl=document.getElementById('mes-cats'),conEl=document.getElementById('mes-consig');
   const cats=window.__cats;
-  if(!cats){hero.innerHTML='<div class="empty">toque em sincronizar (ícone no topo) para carregar o mês</div>';catsEl.innerHTML='';conEl.innerHTML='';return;}
+  if(!cats){hero.innerHTML='<div class="empty">toque em sincronizar (ícone no topo) para carregar o mês</div>';catsEl.innerHTML='';conEl.innerHTML='';document.getElementById('mes-rec').innerHTML='';return;}
   const o=getOrc(),mm=orcMes(o,currentMonth),sh=window.__sh||{};
   const nome=(MONTHS[currentMonth]||{label:''}).label;
   const plan=window.__tp||0,gasto=window.__te||0,sal=mm.sal||0,ext=mm.ext||0;
@@ -2233,20 +2253,14 @@ function renderMes(){
   const pct=plan>0?Math.min(100,Math.round(gasto/plan*100)):0,over=gasto>plan&&plan>0;
   const restante=plan-gasto;
   const lin=mesLinhaRes();
-  let h=`<div class="ctitle"><i class="ti ti-calendar-month"></i>${nome}</div>
-    <div class="row"><span class="rl">vou receber (salário)</span><span class="rv g">${brl(sal)}</span></div>
-    <div class="row"><span class="rl">vai sair (planejado)</span><span class="rv a">${brl(plan)}</span></div>
-    <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">${sobra>=0?'sobra prevista':'falta prevista'}</span><span class="rv ${sobra>=0?'g':'r'}" style="font-weight:600">${brl(Math.abs(sobra))}</span></div>
-    ${ext>0?`<div style="font-size:11px;color:var(--text3);margin-top:2px">renda extra de ${brl(ext)} não entra nessa conta; ela soma só no saldo em conta.</div>`:''}
-    <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>gasto até agora: <b>${brl(gasto)}</b></span><span style="color:var(--text3)">de ${brl(plan)}</span></div>
-    <div class="pb"><div class="pf" style="width:${pct}%;background:${over?'var(--danger)':'var(--accent)'}"></div></div></div>
-    <div class="row" style="margin-top:6px"><span class="rl">${restante>=0?'ainda posso gastar do planejado':'acima do planejado'}</span><span class="rv ${restante>=0?'g':'r'}">${brl(Math.abs(restante))}</span></div>
-    <div class="row"><span class="rl">saldo em conta agora</span><span class="rv ${saldoC>=0?'g':'r'}">${pjMoney(saldoC)}</span></div>`;
-  if(falta>0){
-    const ret=lin?lin.v:null;
-    h+=`<div class="alert ad" style="margin-top:10px"><i class="ti ti-alert-triangle"></i><span>O salário não cobre o planejado: faltam <b>${brl(falta)}</b>. ${ret!=null?(Math.abs(ret-falta)<0.01?'A retirada do consignado já está registrada com esse valor.':'Retirada do consignado registrada: '+brl(ret)+'.'):'Veja o consignado abaixo.'}</span></div>`;
-  }else h+=`<div class="alert as" style="margin-top:10px"><i class="ti ti-check"></i><span>O salário cobre o planejado; sobram <b>${brl(sobra)}</b> neste mês.</span></div>`;
+  const recT=sal+ext,saldoR=recT-gasto,prev=recT-plan;
+  let h=`<div class="ctitle"><i class="ti ti-scale"></i>resumo de ${nome.split('/')[0].toLowerCase()}</div>
+    <div class="row"><span class="rl">receitas</span><span class="rv g">${brl(recT)}</span></div>
+    <div class="row"><span class="rl">(−) gastos</span><span class="rv r">${brl(gasto)}</span></div>
+    <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">saldo</span><span class="rv ${saldoR>=0?'g':'r'}" style="font-weight:600">${pjMoney(saldoR)}</span></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">planejado ${brl(plan)} · saldo previsto ${pjMoney(prev)}${prev<0?' (faltam '+brl(-prev)+')':''}</div>`;
   hero.innerHTML=h;
+  renderRec(mm,sal,ext);
   // categorias
   const ent=Object.entries(cats);
   let tp=0,te=0;
