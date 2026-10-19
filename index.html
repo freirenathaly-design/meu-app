@@ -795,9 +795,8 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <div id="screen-resumo" class="screen active">
         <div class="g2">
           <div class="metric"><div class="mlabel">saldo conta</div><div class="mval a" id="m-saldo">—</div></div>
-          <div class="metric"><div class="mlabel">reserva emergência</div><div class="mval g" id="m-reserva">R$ 10.000</div></div>
           <div class="metric"><div class="mlabel">total efetivado</div><div class="mval r" id="m-efet">—</div></div>
-          <div class="metric"><div class="mlabel">total planejado</div><div class="mval a" id="m-plan">—</div></div>
+          <div class="metric" style="grid-column:1/-1"><div class="mlabel">total planejado</div><div class="mval a" id="m-plan">—</div></div>
         </div>
         <div id="orc-status" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px"></div>
         <div class="card" id="orc-card">
@@ -813,13 +812,6 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
           <div class="row"><span class="rl">conta + renda extra</span><span class="rv g" id="orc-ent">—</span></div>
           <div class="row"><span class="rl">(−) total cumprido</span><span class="rv r" id="orc-cump">—</span></div>
           <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">saldo em conta</span><span class="rv" id="orc-saldoc" style="font-weight:600">—</span></div>
-        </div>
-        <div class="card">
-          <div class="ctitle"><i class="ti ti-piggy-bank"></i>reserva <span style="font-weight:400;color:var(--text3)">(só no app)</span></div>
-          <div class="orc-row"><label for="orc-res">usar da reserva neste mês</label><input type="number" id="orc-res" step="0.01" inputmode="decimal" onchange="orcCampo('res',this.value)"></div>
-          <div class="row"><span class="rl">saldo final projetado + reserva usada</span><span class="rv" id="orc-comres">—</span></div>
-          <div class="orc-row" style="margin-top:6px"><label for="orc-reserva">saldo da minha reserva</label><input type="number" id="orc-reserva" step="0.01" inputmode="decimal" onchange="orcReserva(this.value)"></div>
-          <div id="orc-aviso" style="font-size:11px;color:var(--text3);margin-top:6px"></div>
         </div>
         <div class="card">
           <div class="ctitle"><i class="ti ti-table"></i><span id="resumo-title">resumo — out/2026</span></div>
@@ -860,6 +852,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
           <div id="ferr" style="font-size:12px;color:var(--danger-text);margin-bottom:6px;display:none"></div>
           <button class="btn bp" onclick="addLanc()"><i class="ti ti-plus"></i>adicionar e enviar</button>
         </div>
+        <div id="gastos-status" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px"></div>
         <button class="btn bp" style="margin:0 0 10px" onclick="orcNovo()"><i class="ti ti-plus"></i>novo gasto planejado</button>
         <div class="card">
           <div class="ctitle"><i class="ti ti-list"></i>lançamentos e planejado</div>
@@ -1275,6 +1268,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <div class="fg" id="orc-m-catw" style="display:none"><label class="fl">categoria</label><select id="orc-m-cat"><option value="INVESTIMENTO">Investimento</option><option value="MORADIA">Moradia</option><option value="TRANSPORTE">Transporte</option><option value="ALIMENTAÇÃO">Alimentação</option><option value="PESSOAL">Pessoal</option><option value="APOLO">Apolo</option><option value="PAGAMENTOS">Pagamentos</option></select></div>
       <div class="fg"><label class="fl">item</label><input type="text" id="orc-m-nome" placeholder="ex: Academia"></div>
       <div class="fg"><label class="fl">valor planejado (R$)</label><input type="number" id="orc-m-plan" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+      <div class="fg" id="orc-m-efw"><label class="fl">valor efetivado / gasto (R$)</label><input type="number" id="orc-m-efet" step="0.01" inputmode="decimal" placeholder="0,00"></div>
       <div id="orc-m-info" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
       <button class="btn bp" onclick="orcSalvaItem()"><i class="ti ti-check"></i>salvar</button>
       <button class="btn" id="orc-m-rest" style="display:none;margin-top:6px" onclick="orcRestaura()">voltar ao valor da planilha</button>
@@ -1969,7 +1963,8 @@ function pjCard(titulo,path,p,totalLabel,opts){
 }
 function pjSaldos(p){return PJ_MESES.map(([k,n])=>({k,n,saldo:pjTot(p,p.curto[k])}));}
 function pjDeficits(p){return pjSaldos(p).map(x=>({...x,def:Math.max(0,-x.saldo)}));}
-function pjReservaRestante(p){const d=pjDeficits(p).reduce((a,x)=>a+x.def,0);return p.reserva.ini-p.reserva.rows.reduce((a,r)=>a+r.v,0)-d;}
+function pjReservaRestante(p){if(pjResSheet&&pjResSheet.length){const u=pjResSheet[pjResSheet.length-1];if(u.saldo!=null)return u.saldo;}const d=pjDeficits(p).reduce((a,x)=>a+x.def,0);return p.reserva.ini-p.reserva.rows.reduce((a,r)=>a+r.v,0)-d;}
+let pjResSheet=null,pjResErro='';
 function pjRender(){
   const p=getPj();
   const c=document.getElementById('pj-curto');if(!c)return;
@@ -1979,14 +1974,49 @@ function pjRender(){
     <div class="row"><span class="rl">reserva restante depois de tudo</span><span class="rv ${pjReservaRestante(p)<0?'r':'g'}">${pjMoney(pjReservaRestante(p))}</span></div>
     <div style="font-size:11px;color:var(--text3);margin-top:6px">Toque em uma linha para editar valores; tudo é recalculado.</div></div>`+
     PJ_MESES.map(([k,n])=>pjCard('projeção mensal — '+n,'curto.'+k,p,'saldo '+n.split('/')[0])).join('');
-  document.getElementById('pj-reserva').innerHTML=`<div class="card"><div class="ctitle"><i class="ti ti-piggy-bank"></i>uso da reserva</div>
+  const rest=pjReservaRestante(p);
+  const alerta=`<div class="alert ${rest<0?'ad':'as'}"><i class="ti ti-alert-triangle"></i><span>${rest<0?'a reserva não cobre tudo: faltam '+brl(-rest)+'. precisa de renda extra ou de cortes.':'a reserva cobre os déficits e ainda sobram '+brl(rest)+'.'}</span></div>`;
+  if(pjResSheet&&pjResSheet.length){
+    document.getElementById('pj-reserva').innerHTML=`<div class="card"><div class="ctitle"><i class="ti ti-piggy-bank"></i>projeção de uso da reserva <span style="font-weight:400;color:var(--text3)">— planilha</span></div>
+    ${pjResSheet.map((r,i)=>`<div class="row"><span class="rl">${r.l}${r.ok?' ✅':''}${r.saldo!=null&&i>0?`<br><span style="font-size:11px;color:var(--text3)">saldo restante ${pjMoney(r.saldo)}</span>`:''}</span><span class="rv ${i===0?'g':'r'}">${r.v==null?'—':brl(r.v)}</span></div>`).join('')}
+    <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">saldo restante estimado</span><span class="rv ${rest<0?'r':'g'}" style="font-weight:600">${pjMoney(rest)}</span></div>
+    <div style="font-size:11px;color:var(--text3);margin-top:8px">Dados da seção "Projeção de uso da reserva" da aba Dashboard. Para alterar, edite na planilha e atualize aqui.</div>
+    <button class="orc-ed" style="margin:8px 0 0" onclick="pjReservaCarrega(true)">atualizar da planilha</button></div>`+alerta;
+    return pjRenderMedio(p);
+  }
+  document.getElementById('pj-reserva').innerHTML=`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${pjResErro||'Carregando da planilha...'}</div>`+`<div class="card"><div class="ctitle"><i class="ti ti-piggy-bank"></i>uso da reserva</div>
     <div class="orc-row"><label for="pj-ini">saldo inicial</label><input type="number" id="pj-ini" step="0.01" inputmode="decimal" value="${p.reserva.ini}" onchange="pjIni(this.value)"></div>
     ${p.reserva.rows.map(r=>pjRowHtml('reserva',r,false,p)).join('')}
     ${defs.map(x=>`<div class="row"><span class="rl">(−) cobrir déficit ${x.n.split('/')[0]} <span style="font-size:10px;color:var(--text3)">(automático)</span></span><span class="rv r">${brl(x.def)}</span></div>`).join('')}
     <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">saldo restante estimado</span><span class="rv ${pjReservaRestante(p)<0?'r':'g'}" style="font-weight:600">${pjMoney(pjReservaRestante(p))}</span></div>
     <button class="orc-ed" style="margin:8px 0 0" onclick="pjNova('reserva')">+ adicionar gasto da reserva</button></div>
     <div class="alert ${pjReservaRestante(p)<0?'ad':'as'}"><i class="ti ti-alert-triangle"></i><span>${pjReservaRestante(p)<0?'a reserva não cobre tudo: faltam '+brl(-pjReservaRestante(p))+'. precisa de renda extra ou de cortes.':'a reserva cobre os déficits de out–dez e ainda sobram '+brl(pjReservaRestante(p))+'.'}</span></div>`;
+  pjRenderMedio(p);
+}
+function pjRenderMedio(p){
   document.getElementById('pj-medio').innerHTML=pjCard('renda líquida real','renda',p,'líquido real',{semSinal:true})+pjCard('saldo mensal 2027 (com hotmart)','s2027',p,'saldo livre')+pjCard('cortes recomendados','cortes',p,'total potencial',{semSinal:true});
+}
+
+async function pjReservaCarrega(manual){
+  try{
+    const rows=await fetchSheet('Dashboard!A1:J90');
+    let ini=-1;rows.forEach((r,i)=>{if(ini<0&&r.some(c=>nrm(c).indexOf('PROJECAODEUSODARESERVA')>=0))ini=i;});
+    if(ini<0){pjResErro='Não achei a seção "Projeção de uso da reserva" na aba Dashboard; mostrando os dados do app.';pjRender();return;}
+    const N=v=>{if(typeof v==='number')return v;if(v===undefined||v===null||v==='')return null;const t=String(v).replace(/R\$|\s/g,'').replace(/\./g,'');return /^-?\d+(,\d+)?$/.test(t)?orcNum(t):null;};
+    const lista=[];let comecou=false;
+    for(let i=ini+1;i<rows.length&&lista.length<40;i++){
+      const r=rows[i]||[];const l=String(r[1]||'').trim();
+      if(!l){if(comecou)break;continue;}
+      if(nrm(l)==='FINALIDADE')continue;
+      if(nrm(l).indexOf('PROJECAO')===0&&comecou)break;
+      const nums=[2,3,4,5].map(j=>N(r[j])).filter(x=>x!=null);
+      if(!nums.length)continue;
+      comecou=true;
+      lista.push({l,v:nums[0],saldo:nums.length>1?nums[nums.length-1]:nums[0],ok:r.slice(6,9).join('').indexOf('✅')>=0});
+    }
+    if(lista.length){pjResSheet=lista;pjResErro='';}else pjResErro='A seção da reserva está vazia; mostrando os dados do app.';
+    pjRender();
+  }catch(e){pjResErro='Sem conexão com a planilha; mostrando os dados do app.';pjRender();}
 }
 function pjIni(v){const p=getPj();p.reserva.ini=orcNum(v);savePj(p);pjRender();}
 let pjEd=null;
@@ -2057,7 +2087,6 @@ function renderOrc(){
   const set=(id,v)=>{const e=document.getElementById(id);if(e&&document.activeElement!==e)e.value=v?String(Math.round(v*100)/100):(v===0?'0':'');};
   set('orc-sal',mm.sal);set('orc-ext',mm.ext);set('orc-res',mm.res);
   const reserva=o.reserva!=null?o.reserva:10000;set('orc-reserva',reserva);
-  document.getElementById('m-reserva').textContent=brl(reserva);
   document.getElementById('orc-mes').textContent='— '+(MONTHS[currentMonth]||{label:''}).label;
   const num=v=>(v==null||isNaN(v))?null:v;
   const put=(id,v,cor)=>{const e=document.getElementById(id);if(!e)return;e.textContent=num(v)==null?'—':pjMoney(v);if(cor)e.className='rv '+(cor==='auto'?(v<0?'r':'g'):cor);};
@@ -2070,7 +2099,7 @@ function renderOrc(){
   put('orc-plan',plan);put('orc-saldo',final,'auto');set('orc-cc',cc);put('orc-ent',sub,'g');put('orc-cump',cump);put('orc-saldoc',saldoC,'auto');
   put('orc-comres',final==null?null:final+(mm.res||0),'auto');
   if(saldoC!=null){const m=document.getElementById('m-saldo');if(m){m.textContent=brl(saldoC);m.className='mval '+(saldoC>=0?'g':'r');}}
-  document.getElementById('orc-aviso').textContent='Os valores do saldo projetado e do saldo atual vêm da planilha (os mesmos das células da aba do mês); saldo inicial, renda extra e planejados que você muda aqui são gravados nela. "Usar da reserva" e o saldo da reserva ficam só no app.'+(mm.res>reserva?' Atenção: o valor usado da reserva é maior que o saldo dela.':'');
+  const av=document.getElementById('orc-aviso');if(av)av.textContent='Os valores do saldo projetado e do saldo atual vêm da planilha (os mesmos das células da aba do mês); saldo inicial, renda extra e planejados que você muda aqui são gravados nela. "Usar da reserva" e o saldo da reserva ficam só no app.'+(mm.res>reserva?' Atenção: o valor usado da reserva é maior que o saldo dela.':'');
 }
 function orcAbre(){document.getElementById('modal-orc').style.display='flex';}
 function orcFecha(){document.getElementById('modal-orc').style.display='none';orcEd=null;}
@@ -2079,7 +2108,7 @@ function orcNovo(){
   document.getElementById('orc-m-titulo').textContent='Novo gasto planejado';
   document.getElementById('orc-m-catw').style.display='block';
   document.getElementById('orc-m-nome').value='';document.getElementById('orc-m-nome').readOnly=false;
-  document.getElementById('orc-m-plan').value='';
+  document.getElementById('orc-m-plan').value='';document.getElementById('orc-m-efw').style.display='none';
   document.getElementById('orc-m-info').textContent='Entra no total planejado de '+MONTHS[currentMonth].label+'.';
   document.getElementById('orc-m-rest').style.display='none';document.getElementById('orc-m-del').style.display='none';orcAbre();
 }
@@ -2089,7 +2118,8 @@ function orcEditar(i){
   document.getElementById('orc-m-catw').style.display='none';
   const n=document.getElementById('orc-m-nome');n.value=it.item;n.readOnly=!it.extra;
   document.getElementById('orc-m-plan').value=it.plan;
-  document.getElementById('orc-m-info').textContent=it.extra?'Item criado no app.':'Valor na planilha: '+brl(it.planSheet)+'. A mudança vale só no app.';
+  document.getElementById('orc-m-efw').style.display=it.extra?'none':'block';document.getElementById('orc-m-efet').value=it.efet>0?it.efet:'';
+  document.getElementById('orc-m-info').textContent=it.extra?'Item criado no app.':'Planejado e efetivado são gravados na planilha ao salvar. Na planilha: planejado '+brl(it.planSheet)+', efetivado '+brl(it.efet)+'.';
   document.getElementById('orc-m-rest').style.display=it.ed?'block':'none';
   document.getElementById('orc-m-del').style.display=it.extra?'block':'none';orcAbre();
 }
@@ -2103,14 +2133,21 @@ function orcSalvaItem(){
   }else if(orcEd&&orcEd.it){
     const it=orcEd.it;
     if(it.extra){const x=mm.ex.find(z=>z.id===it.xid);if(x){x.plan=v;const nome=document.getElementById('orc-m-nome').value.trim();if(nome)x.item=nome;}}
-    else mm.ov[it.k]=v;
+    else if(v!==it.plan)mm.ov[it.k]=v;
   }
   saveOrc(o);
-  const it0=orcEd&&orcEd.it;orcFecha();
-  if(novoX){orcEnviaNovo(novoX);}else if(it0&&!it0.extra){orcGravaPlanilha(it0,v);}else orcRefaz();
+  const it0=orcEd&&orcEd.it;
+  const efRaw=document.getElementById('orc-m-efet').value;
+  const efNovo=(it0&&!it0.extra&&efRaw!=='')?orcNum(efRaw):((it0&&!it0.extra&&it0.efet>0)?0:null);
+  const efMudou=efNovo!=null&&Math.abs(efNovo-(it0.efet||0))>0.004;
+  const plMudou=it0&&!it0.extra&&Math.abs(v-it0.plan)>0.004;
+  orcFecha();
+  if(novoX){orcEnviaNovo(novoX);}
+  else if(it0&&!it0.extra){(async()=>{if(plMudou)await orcGravaPlanilha(it0,v);if(efMudou)await orcGravaEfet(it0,efNovo);if(!plMudou&&!efMudou)orcRefaz();})();}
+  else orcRefaz();
 }
 let orcUltimaMsg='';
-function orcMsg(t){orcUltimaMsg=t;const e=document.getElementById('orc-status');if(e){const ok=t.indexOf('✅')===0;e.style.display='block';e.textContent=t;e.style.background=ok?'var(--success-bg)':'var(--warning-bg)';e.style.color=ok?'var(--success-text)':'var(--warning-text)';}renderOrc();}
+function orcMsg(t){orcUltimaMsg=t;const ok=t.indexOf('✅')===0;['orc-status','gastos-status'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.display='block';e.textContent=t;e.style.background=ok?'var(--success-bg)':'var(--warning-bg)';e.style.color=ok?'var(--success-text)':'var(--warning-text)';}});renderOrc();}
 function nrm(x){return String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
 async function planilhaChama(params,descr,force){
   try{
@@ -2129,6 +2166,12 @@ async function orcGravaPlanilha(it,v){
   const r=await planilhaChama({action:'setPlanejado',aba:currentMonth,categoria:it.cat,subcategoria:it.item,ocorr:String(Math.max(0,ocorr)),valor:String(v)},it.item);
   if(r.ok){const o=getOrc(),mm=orcMes(o,currentMonth);delete mm.ov[it.k];saveOrc(o);orcRefaz();orcMsg('✅ Planejado de "'+it.item+'" gravado na planilha.');}
   else{orcRefaz();orcMsg(r.msg);}
+}
+async function orcGravaEfet(it,v){
+  const ocorr=orcItens.filter(x=>!x.extra&&x.cat===it.cat&&x.item===it.item).indexOf(it);
+  const r=await planilhaChama({action:'setEfetivado',aba:currentMonth,categoria:it.cat,subcategoria:it.item,ocorr:String(Math.max(0,ocorr)),valor:String(v)},it.item+' (efetivado)');
+  if(r.ok){orcRefaz();orcMsg('✅ Efetivado de "'+it.item+'" gravado na planilha.');}
+  else{orcMsg(r.msg.replace('o valor ficou salvo só no app','o valor não foi alterado na planilha'));}
 }
 async function orcEnviaNovo(x){
   const m=currentMonth;
@@ -2177,14 +2220,28 @@ const brl=v=>isNaN(v)||v===null?'—':'R$ '+Math.abs(v).toLocaleString('pt-BR',{
 const parseBRL=s=>{if(!s)return 0;const c=s.toString().replace(/R\$\s*/,'').replace(/\s/g,'').replace(/\./g,'').replace(',','.');return parseFloat(c)||0;};
 function detectCat(text){if(!text)return null;const u=text.toUpperCase().replace(/[💸🏠🚗🍽👤🐾💳📈➕\s]/g,'');for(const k of CAT_KEYS){const ku=k.replace(/Ã/g,'A').replace(/Ç/g,'C');const uu=u.replace(/Ã/g,'A').replace(/Ç/g,'C');if(uu===k||uu===ku||u===k||u.includes(k)||uu.includes(ku))return k;}return null;}
 function onMonthChange(){currentMonth=document.getElementById('month-select').value;window.__sh=null;window.__tp=null;const cfg=MONTHS[currentMonth];const mes=cfg.label.split('/')[0].toLowerCase();document.getElementById('resumo-title').textContent=`resumo — ${mes}/${cfg.label.split('/')[1]}`;syncAll();}
-function showScreen(id,title,sub,btn){document.querySelectorAll('#mod-financas .screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('#nav-financas .nb').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');if(btn)btn.classList.add('active');document.getElementById('tt').textContent=title;document.getElementById('ts').textContent=sub;if(id==='projecao'){pjRender();setTimeout(initChart,50);}if(id==='dividas'){renderDividas();divCarrega();}if(id==='wishlist')renderWishlist();}
+function showScreen(id,title,sub,btn){document.querySelectorAll('#mod-financas .screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('#nav-financas .nb').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');if(btn)btn.classList.add('active');document.getElementById('tt').textContent=title;document.getElementById('ts').textContent=sub;if(id==='projecao'){pjRender();pjReservaCarrega();setTimeout(initChart,50);}if(id==='dividas'){renderDividas();divCarrega();}if(id==='wishlist')renderWishlist();}
 function showP(id,btn){['curto','reserva','medio','marcos'].forEach(k=>{const el=document.getElementById('proj-'+k);if(el)el.style.display=k===id?'block':'none';});document.querySelectorAll('#screen-projecao .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');if(id==='curto')setTimeout(initChart,50);pjRender();}
 async function fetchSheet(range,formatted=false){const render=formatted?'FORMATTED_VALUE':'UNFORMATTED_VALUE';const url=`${BASE}/${encodeURIComponent(range)}?key=${API_KEY}&valueRenderOption=${render}&dateTimeRenderOption=FORMATTED_STRING`;const res=await fetch(url);if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'HTTP '+res.status);}const d=await res.json();return d.values||[];}
 async function syncAll(){const btn=document.getElementById('sbtn');btn.classList.add('loading');document.getElementById('ts').textContent='sincronizando...';try{const m=currentMonth;const cfg=MONTHS[m];const[rows,saldoCell]=await Promise.all([fetchSheet(`${m}!B1:G100`),fetchSheet(cfg.saldo,true)]);processData(rows);if(saldoCell&&saldoCell[0]&&saldoCell[0][0]!==undefined){const raw=saldoCell[0][0];const saldo=typeof raw==='number'?raw:parseBRL(String(raw));if(!isNaN(saldo)){document.getElementById('m-saldo').textContent=brl(saldo);document.getElementById('m-saldo').className='mval '+(saldo>=0?'g':'r');}}document.getElementById('ts').textContent=MONTHS[currentMonth].label+' · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}catch(e){document.getElementById('ts').textContent='erro: '+e.message;document.getElementById('sheet-resumo').innerHTML=`<div class="alert ad"><i class="ti ti-alert-triangle"></i><span>erro ao carregar: ${e.message}</span></div>`;}btn.classList.remove('loading');}
 function processData(rows){const cats={};let currentCat=null;let te=0,tp=0;rows.forEach(row=>{const item=String(row[0]||'').trim();const efetRaw=row[2];const planRaw=row[3];if(!item)return;const catKey=detectCat(item);if(catKey&&!efetRaw&&!planRaw){currentCat=catKey;if(!cats[currentCat])cats[currentCat]={efet:0,plan:0,icon:CAT_ICONS[catKey]||'📌',items:[]};return;}if(currentCat){const efet=typeof efetRaw==='number'?efetRaw:parseBRL(efetRaw);const plan=typeof planRaw==='number'?planRaw:parseBRL(planRaw);const venc=String(row[1]||'').trim();const status=String(row[4]||'').trim();const desc=String(row[5]||'').trim();if(efet>0||plan>0){cats[currentCat].efet+=efet;cats[currentCat].plan+=plan;te+=efet;tp+=plan;cats[currentCat].items.push({item,venc,efet,plan,status,descricao:desc,cat:currentCat});}}});tp=orcAplica(cats);window.__tp=tp;window.__te=te;document.getElementById('m-efet').textContent=brl(te);document.getElementById('m-plan').textContent=brl(tp);renderResumo(cats,te,tp);renderCatBars(cats);renderSheetLancs(cats);renderOrc();}
 function renderResumo(cats,te,tp){const over=te>tp;document.getElementById('sheet-resumo').innerHTML=`<div class="row"><span class="rl">total efetivado</span><span class="rv r">${brl(te)}</span></div><div class="row"><span class="rl">total planejado</span><span class="rv a">${brl(tp)}</span></div><div class="row"><span class="rl">${over?'⚠️ acima':'✅ dentro'} do planejado</span><span class="rv ${over?'r':'g'}">${over?'+':'−'}${brl(Math.abs(te-tp))}</span></div><div class="row"><span class="rl">categorias detectadas</span><span class="rv">${Object.keys(cats).length}</span></div>`;}
 function renderCatBars(cats){const el=document.getElementById('cat-bars');if(!Object.keys(cats).length){el.innerHTML='<div class="empty">nenhuma categoria detectada</div>';return;}el.innerHTML=Object.entries(cats).map(([k,d])=>{const pct=d.plan>0?Math.min(100,Math.round((d.efet/d.plan)*100)):0;const over=d.efet>d.plan&&d.plan>0;return`<div class="cat-item"><div class="cat-info"><span>${d.icon} ${k.charAt(0)+k.slice(1).toLowerCase()}</span><span>${brl(d.efet)} / ${brl(d.plan)}</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${over?'var(--danger)':'var(--accent)'}"></div></div></div>`;}).join('');}
-function renderSheetLancs(cats){const el=document.getElementById('sheet-lancs');if(!Object.keys(cats).length){el.innerHTML='<div class="empty">sem dados</div>';return;}el.innerHTML=Object.entries(cats).map(([k,d])=>`<div class="sec-hdr">${d.icon} ${k.charAt(0)+k.slice(1).toLowerCase()}</div>${d.items.map(it=>`<div class="sdi"><div class="sdi-top"><span style="font-weight:500">${it.item}</span><span style="color:${it.efet>0?'var(--danger-text)':'var(--text3)'}">${it.efet>0?brl(it.efet):'—'}</span></div><div class="sdi-bot">${it.venc?'venc: '+it.venc+' · ':''}plan: ${brl(it.plan)}${it.ed?' ✎':''} ${it.status}<button class="orc-ed" onclick="orcEditar(${it.i})">editar</button></div>${it.descricao?`<div style="font-size:11px;color:var(--accent-text);margin-top:3px;background:var(--accent-bg);padding:3px 8px;border-radius:4px;display:inline-block">📝 ${it.descricao}</div>`:''}</div>`).join('')}`).join('');}
+function renderSheetLancs(cats){
+  const el=document.getElementById('sheet-lancs');
+  if(!Object.keys(cats).length){el.innerHTML='<div class="empty">sem dados</div>';return;}
+  let tp=0,te=0;
+  const corpo=Object.entries(cats).map(([k,d])=>{
+    tp+=d.plan;te+=d.efet;
+    return `<div class="sec-hdr" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span>${d.icon} ${k.charAt(0)+k.slice(1).toLowerCase()}</span><span style="text-transform:none;letter-spacing:0;font-size:11px"><b style="color:var(--text)">planejado ${brl(d.plan)}</b> · gasto ${brl(d.efet)}</span></div>`+
+    d.items.map(it=>`<div class="sdi"><div class="sdi-top"><span style="font-weight:500">${it.item}</span><span style="color:${it.efet>0?'var(--danger-text)':'var(--text3)'}">${it.efet>0?brl(it.efet):'—'}</span></div><div class="sdi-bot">${it.venc?'venc: '+it.venc+' · ':''}plan: ${brl(it.plan)}${it.ed?' ✎':''} ${it.status}<button class="orc-ed" onclick="orcEditar(${it.i})">editar</button></div>${it.descricao?`<div style="font-size:11px;color:var(--accent-text);margin-top:3px;background:var(--accent-bg);padding:3px 8px;border-radius:4px;display:inline-block">📝 ${it.descricao}</div>`:''}</div>`).join('');
+  }).join('');
+  const dif=tp-te;
+  el.innerHTML=corpo+`<div class="sec-hdr" style="margin-top:12px">total do mês</div>
+    <div class="row"><span class="rl">total planejado</span><span class="rv a">${brl(tp)}</span></div>
+    <div class="row"><span class="rl">total gasto (efetivado)</span><span class="rv r">${brl(te)}</span></div>
+    <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">${dif>=0?'ainda a gastar do planejado':'acima do planejado'}</span><span class="rv ${dif>=0?'g':'r'}" style="font-weight:600">${brl(dif)}</span></div>`;
+}
 async function loadSubcats(){const cat=document.getElementById('cat').value;const wrap=document.getElementById('subcat-wrap');const sel=document.getElementById('subcat');if(!cat){wrap.style.display='none';return;}wrap.style.display='block';sel.innerHTML='<option>carregando...</option>';try{const params=new URLSearchParams({action:'getSubcats',categoria:cat,aba:currentMonth});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success&&d.subcats&&d.subcats.length){sel.innerHTML=d.subcats.map(s=>`<option value="${s}">${s}</option>`).join('');}else{sel.innerHTML='<option value="">— nenhuma subcategoria —</option>';}}catch(e){sel.innerHTML='<option value="">— erro ao carregar —</option>';}}
 async function addLanc(){const valor=parseFloat(document.getElementById('valor').value);const cat=document.getElementById('cat').value;const subcat=document.getElementById('subcat').value;const status=document.getElementById('status').value;const descDetalhe=document.getElementById('desc-detalhe').value.trim();const err=document.getElementById('ferr');if(!cat){err.textContent='selecione a categoria';err.style.display='block';return;}if(!subcat){err.textContent='selecione a subcategoria';err.style.display='block';return;}if(!valor||valor<=0){err.textContent='informe um valor válido';err.style.display='block';return;}err.style.display='none';const btn=document.querySelector('#screen-gastos .btn.bp');btn.textContent='enviando...';btn.disabled=true;try{const params=new URLSearchParams({action:'addLancamento',aba:currentMonth,categoria:cat,subcategoria:subcat,valor:valor.toFixed(2),status,descricao:descDetalhe});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success){document.getElementById('valor').value='';document.getElementById('desc-detalhe').value='';document.getElementById('cat').value='';document.getElementById('subcat-wrap').style.display='none';err.style.color='var(--success-text)';err.style.display='block';err.textContent=`✅ ${subcat}: +R$ ${valor.toFixed(2).replace('.',',')} → total R$ ${parseFloat(d.total).toFixed(2).replace('.',',')}`;setTimeout(()=>{err.style.display='none';err.style.color='var(--danger-text)';syncAll();},2500);}else{err.textContent='erro: '+(d.error||'desconhecido');err.style.display='block';}}catch(e){err.textContent='erro de conexão: '+e.message;err.style.display='block';}btn.innerHTML='<i class="ti ti-plus"></i>adicionar e enviar';btn.disabled=false;}
 function renderDividas(){let totalDiv=0,totalMensal=0;const grupos={};divEff().forEach(e=>{const restam=e.total-e.pagas;const pct=e.total>0?Math.round((e.pagas/e.total)*100):0;if(e.saldo>0)totalDiv+=e.saldo;if(e.valorParc>0&&restam>0)totalMensal+=e.valorParc;if(!grupos[e.tipo])grupos[e.tipo]=[];grupos[e.tipo].push({...e,restam,pct});});document.getElementById('div-total').textContent=brl(totalDiv);document.getElementById('div-mensal').textContent=brl(totalMensal);const tipoIcon={'Consignado':'🏦','Boleto':'📄','Cartão':'💳'};const tipoColor={'Consignado':'var(--danger)','Boleto':'var(--warning)','Cartão':'var(--accent)'};let html='';Object.entries(grupos).forEach(([tipo,items])=>{html+=`<div class="card"><div class="ctitle">${tipoIcon[tipo]||'📋'} ${tipo.toLowerCase()}s</div>`;items.forEach(e=>{const cor=e.restam===0?'var(--success)':tipoColor[e.tipo]||'var(--text3)';const badgeClass=e.restam===0?'bok':e.pct>50?'bpend':'bred';html+=`<div class="loan-card"><div class="loan-top"><span class="loan-name">${e.nome}</span><span class="badge ${badgeClass}">${e.restam===0?'✅ quitado':`${e.pagas}/${e.total}x · ${brl(e.valorParc)}`}</span></div><div class="loan-info"><span>${e.saldo>0?'saldo: '+brl(e.saldo):'quitado'}${e.ed?' ✎':''}</span><span>${e.venc?'venc: '+e.venc:''}</span></div><div style="display:flex;gap:6px;margin:4px 0"><button class="orc-ed" style="margin:0" onclick="divEditar(\'${e.nome}\')">editar</button>${e.restam>0?`<button class="orc-ed" style="margin:0" onclick="divMaisUma(\'${e.nome}\')">+1 parcela paga</button>`:''}${e.pagas>0?`<button class="orc-ed" style="margin:0" onclick="divMenosUma(\'${e.nome}\')">−1</button>`:''}</div><div class="loan-progress"><div class="pl"><span>${e.pagas} pagas · ${e.restam} restantes</span><span>${e.pct}%</span></div><div class="pb"><div class="pf" style="width:${e.pct}%;background:${cor}"></div></div></div>${e.obs?`<div style="font-size:11px;color:var(--accent-text);background:var(--accent-bg);padding:4px 8px;border-radius:4px;margin-top:4px">📝 ${e.obs}</div>`:''}</div>`;});html+='</div>';});document.getElementById('div-lista').innerHTML=html;}
@@ -3819,12 +3876,6 @@ function renderInicio(){
   el.innerHTML=`
     <div class="inicio-greeting">Olá, Lara</div>
     <div class="inicio-date">${dataFmt}</div>
-    <div class="g2">
-      <div class="metric"><div class="mlabel">streak treino</div><div class="mval p">${tStreak} dia${tStreak!==1?'s':''}</div></div>
-      <div class="metric"><div class="mlabel">streak dieta</div><div class="mval g">${dStreak} dia${dStreak!==1?'s':''}</div></div>
-      <div class="metric"><div class="mlabel">treinos em ${mesLabel.toLowerCase()}</div><div class="mval a">${tMes}</div></div>
-      <div class="metric"><div class="mlabel">kcal hoje</div><div class="mval t">${kcalHoje||'—'}</div></div>
-    </div>
     <div class="inicio-cols">
     <div class="card" id="notas-card">
       <div class="ctitle"><i class="ti ti-notes"></i>Bloco de notas</div>
