@@ -808,7 +808,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
         </div>
         <div class="card">
           <div class="ctitle"><i class="ti ti-wallet"></i>saldo atual</div>
-          <div class="row"><span class="rl">saldo inicial conta corrente</span><span class="rv" id="orc-cc">—</span></div>
+          <div class="orc-row"><label for="orc-cc">saldo inicial conta corrente</label><input type="number" id="orc-cc" step="0.01" inputmode="decimal" onchange="orcCampo('cc',this.value)"></div>
           <div class="orc-row"><label for="orc-ext">renda extra</label><input type="number" id="orc-ext" step="0.01" inputmode="decimal" onchange="orcCampo('ext',this.value)"></div>
           <div class="row"><span class="rl">conta + renda extra</span><span class="rv g" id="orc-ent">—</span></div>
           <div class="row"><span class="rl">(−) total cumprido</span><span class="rv r" id="orc-cump">—</span></div>
@@ -2049,7 +2049,7 @@ function orcAplica(cats){
   return Object.values(cats).reduce((a,d)=>a+d.plan,0);
 }
 function orcNum(v){const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?0:n;}
-function orcCampo(c,v){const o=getOrc(),mm=orcMes(o,currentMonth);mm[c]=orcNum(v);const m=currentMonth;if(c==='sal'||c==='ext'){mm.pend=mm.pend||{};mm.pend[c]=mm[c];}saveOrc(o);renderOrc();if(c==='sal'||c==='ext')orcGravaEntrada(m,c,mm[c]);}
+function orcCampo(c,v){const o=getOrc(),mm=orcMes(o,currentMonth);mm[c]=orcNum(v);const m=currentMonth;if(c==='sal'||c==='ext'||c==='cc'){mm.pend=mm.pend||{};mm.pend[c]=mm[c];}saveOrc(o);renderOrc();if(c==='sal'||c==='ext'||c==='cc')orcGravaEntrada(m,c,mm[c]);}
 function orcReserva(v){const o=getOrc();o.reserva=orcNum(v);saveOrc(o);renderOrc();}
 function renderOrc(){
   const el=document.getElementById('orc-sal');if(!el)return;
@@ -2063,11 +2063,11 @@ function renderOrc(){
   const put=(id,v,cor)=>{const e=document.getElementById(id);if(!e)return;e.textContent=num(v)==null?'—':pjMoney(v);if(cor)e.className='rv '+(cor==='auto'?(v<0?'r':'g'):cor);};
   const plan=num(sh.totPlan!=null?sh.totPlan:window.__tp);
   const final=sh.saldoFinalProj!=null?sh.saldoFinalProj:(plan!=null?(mm.sal||0)-plan:null);
-  const cc=sh.salCC!=null?sh.salCC:(mm.sal||0);
+  const cc=(mm.cc!=null?mm.cc:(sh.salCC!=null?sh.salCC:(mm.sal||0)));
   const sub=(sh.sub!=null&&sh.ext===mm.ext)?sh.sub:cc+(mm.ext||0);
   const cump=num(sh.totCump!=null?sh.totCump:window.__te);
   const saldoC=sh.saldo!=null?sh.saldo:(cump!=null?sub-cump:null);
-  put('orc-plan',plan);put('orc-saldo',final,'auto');put('orc-cc',cc);put('orc-ent',sub,'g');put('orc-cump',cump);put('orc-saldoc',saldoC,'auto');
+  put('orc-plan',plan);put('orc-saldo',final,'auto');set('orc-cc',cc);put('orc-ent',sub,'g');put('orc-cump',cump);put('orc-saldoc',saldoC,'auto');
   put('orc-comres',final==null?null:final+(mm.res||0),'auto');
   if(saldoC!=null){const m=document.getElementById('m-saldo');if(m){m.textContent=brl(saldoC);m.className='mval '+(saldoC>=0?'g':'r');}}
   document.getElementById('orc-aviso').textContent='Os valores do saldo projetado e do saldo atual vêm da planilha (os mesmos das células da aba do mês); saldo inicial, renda extra e planejados que você muda aqui são gravados nela. "Usar da reserva" e o saldo da reserva ficam só no app.'+(mm.res>reserva?' Atenção: o valor usado da reserva é maior que o saldo dela.':'');
@@ -2118,7 +2118,7 @@ async function planilhaChama(params,descr,force){
     const d=await (await fetch(`${SCRIPT_URL}?${q}`)).json();
     if(d.success)return {ok:true,d};
     if(d.error==='formula'){
-      if(confirm('A célula de "'+descr+'" na planilha tem uma fórmula ('+d.formula+').\n\nSubstituir pelo valor novo?'))return planilhaChama(params,descr,true);
+      if(confirm('A célula de "'+descr+'" na planilha tem uma fórmula ('+d.formula+').\n\nSubstituir a fórmula pelo valor novo? A célula deixa de seguir essa fórmula.'))return planilhaChama(params,descr,true);
       return {ok:false,msg:'Fórmula mantida na planilha; o valor novo ficou salvo só no app.'};
     }
     return {ok:false,msg:d.error==='Acao nao reconhecida'?'O script da planilha ainda não foi atualizado; o valor ficou salvo só no app.':'Não consegui gravar na planilha ('+d.error+'); o valor ficou salvo só no app.'};
@@ -2137,9 +2137,9 @@ async function orcEnviaNovo(x){
   else{orcRefaz();orcMsg(r.msg.replace('o valor ficou salvo só no app','o item ficou salvo só no app'));}
 }
 async function orcGravaEntrada(m,c,v){
-  const r=await planilhaChama({action:'setEntrada',aba:m,campo:c,valor:String(v)},c==='sal'?'saldo inicial':'renda extra');
+  const r=await planilhaChama({action:'setEntrada',aba:m,campo:c,valor:String(v)},c==='sal'?'saldo inicial (projetado)':(c==='cc'?'saldo inicial da conta corrente':'renda extra'));
   const o=getOrc(),mm=orcMes(o,m);
-  if(r.ok){if(mm.pend)delete mm.pend[c];saveOrc(o);orcMsg('✅ '+(c==='sal'?'Saldo inicial':'Renda extra')+' gravado na planilha.');orcLePlanilha();}
+  if(r.ok){if(mm.pend)delete mm.pend[c];saveOrc(o);orcMsg('✅ '+(c==='sal'?'Saldo inicial (projetado)':(c==='cc'?'Saldo inicial da conta corrente':'Renda extra'))+' gravado na planilha.');orcLePlanilha();}
   else orcMsg(r.msg);
 }
 async function orcLePlanilha(){
@@ -2160,6 +2160,7 @@ async function orcLePlanilha(){
     const sv=(sh.sal!=null?sh.sal:sh.salCC),pend=mm.pend||{};
     if(sv!=null&&pend.sal==null&&mm.sal!==sv){mm.sal=sv;mudou=true;}
     if(sh.ext!=null&&pend.ext==null&&mm.ext!==sh.ext){mm.ext=sh.ext;mudou=true;}
+    if(sh.salCC!=null&&pend.cc==null&&mm.cc!==sh.salCC){mm.cc=sh.salCC;mudou=true;}
     if(mudou)saveOrc(o);
     renderOrc();
   }catch(e){}
