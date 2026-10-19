@@ -779,7 +779,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
   <!-- MÓDULO: FINANÇAS -->
   <div id="mod-financas" class="module">
     <div class="topbar">
-      <div><div class="topbar-title" id="tt">resumo</div><div class="topbar-sub" id="ts">dados da planilha</div></div>
+      <div><div class="topbar-title" id="tt">mês</div><div class="topbar-sub" id="ts">planejado e gastos</div></div>
       <button class="sync-btn" id="sbtn" onclick="syncAll()"><i class="ti ti-refresh" id="sico"></i>sincronizar</button>
     </div>
     <div style="background:var(--surface);border-bottom:.5px solid var(--border);padding:8px 16px">
@@ -793,71 +793,29 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
     <div class="content">
       <div class="notas-mod" data-area="financas"></div>
       <div id="screen-resumo" class="screen active">
-        <div class="g2">
-          <div class="metric"><div class="mlabel">saldo conta</div><div class="mval a" id="m-saldo">—</div></div>
-          <div class="metric"><div class="mlabel">total efetivado</div><div class="mval r" id="m-efet">—</div></div>
-          <div class="metric" style="grid-column:1/-1"><div class="mlabel">total planejado</div><div class="mval a" id="m-plan">—</div></div>
-        </div>
         <div id="orc-status" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px"></div>
+        <span id="m-saldo" style="display:none"></span><span id="resumo-title" style="display:none"></span><span id="orc-mes" style="display:none"></span>
+        <div class="card" id="mes-hero"><div class="empty">toque em sincronizar</div></div>
+        <button class="btn bp" style="margin:0 0 10px" onclick="lancAbre()"><i class="ti ti-plus"></i>lançar um gasto</button>
         <div class="card" id="orc-card">
-          <div class="ctitle"><i class="ti ti-chart-line"></i>saldo projetado <span id="orc-mes" style="font-weight:400;color:var(--text3)"></span></div>
-          <div class="orc-row"><label for="orc-sal">saldo inicial (salário)</label><input type="number" id="orc-sal" step="0.01" inputmode="decimal" onchange="orcCampo('sal',this.value)"></div>
-          <div class="row"><span class="rl">(−) total planejado</span><span class="rv r" id="orc-plan">—</span></div>
-          <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">saldo final projetado</span><span class="rv" id="orc-saldo" style="font-weight:600">—</span></div>
-        </div>
-        <div class="card">
-          <div class="ctitle"><i class="ti ti-wallet"></i>saldo atual</div>
-          <div class="orc-row"><label for="orc-cc">saldo inicial conta corrente</label><input type="number" id="orc-cc" step="0.01" inputmode="decimal" onchange="orcCampo('cc',this.value)"></div>
+          <div class="ctitle"><i class="ti ti-cash"></i>quanto vou receber</div>
+          <div class="orc-row"><label for="orc-sal">salário do mês</label><input type="number" id="orc-sal" step="0.01" inputmode="decimal" onchange="orcCampo('sal',this.value)"></div>
           <div class="orc-row"><label for="orc-ext">renda extra</label><input type="number" id="orc-ext" step="0.01" inputmode="decimal" onchange="orcCampo('ext',this.value)"></div>
+          <details style="margin-top:4px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">saldo inicial da conta corrente</summary>
+            <div class="orc-row"><label for="orc-cc">saldo inicial conta corrente</label><input type="number" id="orc-cc" step="0.01" inputmode="decimal" onchange="orcCampo('cc',this.value)"></div></details>
+        </div>
+        <div class="sec-hdr" style="margin:14px 0 6px">gastos por categoria <span style="text-transform:none;letter-spacing:0;font-weight:400">— toque para abrir</span></div>
+        <div id="mes-cats"></div>
+        <div id="mes-consig"></div>
+        <div class="card">
+          <div class="ctitle"><i class="ti ti-table"></i>como está na planilha</div>
+          <div class="row"><span class="rl">(−) total planejado</span><span class="rv r" id="orc-plan">—</span></div>
+          <div class="row"><span class="rl">saldo final projetado</span><span class="rv" id="orc-saldo">—</span></div>
           <div class="row"><span class="rl">conta + renda extra</span><span class="rv g" id="orc-ent">—</span></div>
           <div class="row"><span class="rl">(−) total cumprido</span><span class="rv r" id="orc-cump">—</span></div>
           <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">saldo em conta</span><span class="rv" id="orc-saldoc" style="font-weight:600">—</span></div>
         </div>
-        <div class="card">
-          <div class="ctitle"><i class="ti ti-table"></i><span id="resumo-title">resumo — out/2026</span></div>
-          <div id="sheet-resumo"><div class="empty">toque em sincronizar</div></div>
-        </div>
-        <div class="card">
-          <div class="ctitle"><i class="ti ti-chart-bar"></i>gastos por categoria</div>
-          <div id="cat-bars"><div class="empty">toque em sincronizar</div></div>
-        </div>
-      </div>
-      <div id="screen-gastos" class="screen">
-        <div class="card">
-          <div class="ctitle"><i class="ti ti-plus"></i>Novo Lançamento</div>
-          <div class="fr">
-            <div class="fg"><label class="fl">valor (R$)</label><input type="number" id="valor" placeholder="0,00" step="0.01" inputmode="decimal"></div>
-            <div class="fg"><label class="fl">status</label>
-              <select id="status"><option value="✅">✅ efetivado</option><option value="⏳">⏳ planejado</option></select>
-            </div>
-          </div>
-          <div class="fg"><label class="fl">1. categoria</label>
-            <select id="cat" onchange="loadSubcats()">
-              <option value="">— selecione —</option>
-              <option value="INVESTIMENTO">💸 Investimento</option>
-              <option value="MORADIA">🏠 Moradia</option>
-              <option value="TRANSPORTE">🚗 Transporte</option>
-              <option value="ALIMENTAÇÃO">🍽 Alimentação</option>
-              <option value="PESSOAL">👤 Pessoal</option>
-              <option value="APOLO">🐾 Apolo</option>
-              <option value="PAGAMENTOS">💳 Pagamentos</option>
-            </select>
-          </div>
-          <div class="fg" id="subcat-wrap" style="display:none">
-            <label class="fl">2. subcategoria</label>
-            <select id="subcat"><option value="">— carregando... —</option></select>
-          </div>
-          <div class="fg"><label class="fl">descrição detalhada (opcional)</label>
-            <input type="text" id="desc-detalhe" placeholder="ex: farmácia R$45 + lanche R$38"></div>
-          <div id="ferr" style="font-size:12px;color:var(--danger-text);margin-bottom:6px;display:none"></div>
-          <button class="btn bp" onclick="addLanc()"><i class="ti ti-plus"></i>adicionar e enviar</button>
-        </div>
-        <div id="gastos-status" style="display:none;font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:10px"></div>
-        <button class="btn bp" style="margin:0 0 10px" onclick="orcNovo()"><i class="ti ti-plus"></i>novo gasto planejado</button>
-        <div class="card">
-          <div class="ctitle"><i class="ti ti-list"></i>lançamentos e planejado</div>
-          <div id="sheet-lancs"><div class="empty">toque em sincronizar</div></div>
-        </div>
+        <div id="sheet-resumo"></div>
       </div>
       <div id="screen-dividas" class="screen">
         <div class="g2">
@@ -930,8 +888,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       </div>
     </div>
     <nav class="sub-nav sub-nav-set" id="nav-financas">
-      <button class="nb active" onclick="showScreen('resumo','resumo','dados da planilha',this)"><i class="ti ti-home"></i>Resumo</button>
-      <button class="nb" onclick="showScreen('gastos','gastos','lançamentos',this)"><i class="ti ti-receipt"></i>Gastos</button>
+      <button class="nb active" onclick="showScreen('resumo','mês','planejado e gastos',this)"><i class="ti ti-calendar-month"></i>Mês</button>
       <button class="nb" onclick="showScreen('dividas','dívidas','situação atual',this)"><i class="ti ti-credit-card"></i>Dívidas</button>
       <button class="nb" onclick="showScreen('hotmart','hotmart','meta de vendas',this)"><i class="ti ti-target"></i>Hotmart</button>
       <button class="nb" onclick="showScreen('projecao','projeção','out/2026–2030',this)"><i class="ti ti-chart-line"></i>Projeção</button>
@@ -1262,6 +1219,32 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
   </div>
 
   <!-- MODAL CORES -->
+  <div id="modal-lanc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center" onclick="if(event.target===this)lancFecha()">
+    <div style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:430px;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:600">Lançar gasto</div><button onclick="lancFecha()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text3)">✕</button></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">valor (R$)</label><input type="number" id="valor" placeholder="0,00" step="0.01" inputmode="decimal"></div>
+        <div class="fg"><label class="fl">status</label><select id="status"><option value="✅">✅ já gastei</option><option value="⏳">⏳ planejado</option></select></div>
+      </div>
+      <div class="fg"><label class="fl">1. categoria</label>
+        <select id="cat" onchange="loadSubcats()">
+          <option value="">— selecione —</option>
+          <option value="INVESTIMENTO">💸 Investimento</option>
+          <option value="MORADIA">🏠 Moradia</option>
+          <option value="TRANSPORTE">🚗 Transporte</option>
+          <option value="ALIMENTAÇÃO">🍽 Alimentação</option>
+          <option value="PESSOAL">👤 Pessoal</option>
+          <option value="APOLO">🐾 Apolo</option>
+          <option value="PAGAMENTOS">💳 Pagamentos</option>
+        </select>
+      </div>
+      <div class="fg" id="subcat-wrap" style="display:none"><label class="fl">2. subcategoria</label><select id="subcat"><option value="">— carregando... —</option></select></div>
+      <div class="fg"><label class="fl">descrição detalhada (opcional)</label><input type="text" id="desc-detalhe" placeholder="ex: farmácia R$45 + lanche R$38"></div>
+      <div id="ferr" style="font-size:12px;color:var(--danger-text);margin-bottom:6px;display:none"></div>
+      <button class="btn bp" onclick="addLanc()"><i class="ti ti-plus"></i>adicionar e enviar</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">O valor é somado ao que já foi gasto naquele item, direto na planilha.</div>
+    </div>
+  </div>
   <div id="modal-orc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center" onclick="if(event.target===this)orcFecha()">
     <div style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:430px;max-height:88vh;overflow-y:auto">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="font-size:15px;font-weight:600" id="orc-m-titulo">Editar planejado</div><button onclick="orcFecha()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:22px"><i class="ti ti-x"></i></button></div>
@@ -2099,18 +2082,19 @@ function renderOrc(){
   put('orc-plan',plan);put('orc-saldo',final,'auto');set('orc-cc',cc);put('orc-ent',sub,'g');put('orc-cump',cump);put('orc-saldoc',saldoC,'auto');
   put('orc-comres',final==null?null:final+(mm.res||0),'auto');
   if(saldoC!=null){const m=document.getElementById('m-saldo');if(m){m.textContent=brl(saldoC);m.className='mval '+(saldoC>=0?'g':'r');}}
+  try{renderMes();}catch(e){}
   const av=document.getElementById('orc-aviso');if(av)av.textContent='Os valores do saldo projetado e do saldo atual vêm da planilha (os mesmos das células da aba do mês); saldo inicial, renda extra e planejados que você muda aqui são gravados nela. "Usar da reserva" e o saldo da reserva ficam só no app.'+(mm.res>reserva?' Atenção: o valor usado da reserva é maior que o saldo dela.':'');
 }
 function orcAbre(){document.getElementById('modal-orc').style.display='flex';}
 function orcFecha(){document.getElementById('modal-orc').style.display='none';orcEd=null;}
-function orcNovo(){
+function orcNovo(cat){
   orcEd={novo:true};
   document.getElementById('orc-m-titulo').textContent='Novo gasto planejado';
   document.getElementById('orc-m-catw').style.display='block';
   document.getElementById('orc-m-nome').value='';document.getElementById('orc-m-nome').readOnly=false;
   document.getElementById('orc-m-plan').value='';document.getElementById('orc-m-efw').style.display='none';
   document.getElementById('orc-m-info').textContent='Entra no total planejado de '+MONTHS[currentMonth].label+'.';
-  document.getElementById('orc-m-rest').style.display='none';document.getElementById('orc-m-del').style.display='none';orcAbre();
+  document.getElementById('orc-m-rest').style.display='none';document.getElementById('orc-m-del').style.display='none';if(cat)document.getElementById('orc-m-cat').value=cat;orcAbre();
 }
 function orcEditar(i){
   const it=orcItens[i];if(!it)return;orcEd={it};
@@ -2147,7 +2131,7 @@ function orcSalvaItem(){
   else orcRefaz();
 }
 let orcUltimaMsg='';
-function orcMsg(t){orcUltimaMsg=t;const ok=t.indexOf('✅')===0;['orc-status','gastos-status'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.display='block';e.textContent=t;e.style.background=ok?'var(--success-bg)':'var(--warning-bg)';e.style.color=ok?'var(--success-text)':'var(--warning-text)';}});renderOrc();}
+function orcMsg(t){orcUltimaMsg=t;const ok=t.indexOf('✅')===0;['orc-status'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.display='block';e.textContent=t;e.style.background=ok?'var(--success-bg)':'var(--warning-bg)';e.style.color=ok?'var(--success-text)':'var(--warning-text)';}});renderOrc();}
 function nrm(x){return String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
 async function planilhaChama(params,descr,force){
   try{
@@ -2211,6 +2195,98 @@ async function orcLePlanilha(){
 (function(){const o=window.syncAll;window.syncAll=async function(){await o.apply(this,arguments);await orcLePlanilha();};})();
 function orcRestaura(){if(!orcEd||!orcEd.it)return;const o=getOrc(),mm=orcMes(o,currentMonth);delete mm.ov[orcEd.it.k];saveOrc(o);orcFecha();orcRefaz();}
 function orcExcluiExtra(){if(!orcEd||!orcEd.it||!orcEd.it.extra)return;if(!confirm('Excluir este gasto planejado?'))return;const o=getOrc(),mm=orcMes(o,currentMonth);mm.ex=mm.ex.filter(z=>z.id!==orcEd.it.xid);saveOrc(o);orcFecha();orcRefaz();}
+
+/* ===== PÁGINA MÊS ===== */
+const MES_NOME={SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro'};
+let mesAberto={};
+function mesToggle(k){mesAberto[k]=!mesAberto[k];renderMes();}
+function lancAbre(cat){
+  document.getElementById('modal-lanc').style.display='flex';
+  const c=document.getElementById('cat');c.value=cat||'';
+  document.getElementById('subcat-wrap').style.display='none';
+  if(c.value)loadSubcats();
+}
+function lancFecha(){document.getElementById('modal-lanc').style.display='none';}
+function mesLinhaRes(){
+  if(!pjResSheet||!pjResSheet.length)return null;
+  const n=nrm(MES_NOME[currentMonth]||'');
+  return pjResSheet.find((r,i)=>i>0&&nrm(r.l).indexOf('COBRIRDEFICIT'+n)>=0)||pjResSheet.find((r,i)=>i>0&&nrm(r.l).indexOf(n)>=0)||null;
+}
+async function mesRetira(v){
+  const val=orcNum(v);const mes=MES_NOME[currentMonth];
+  const r=await planilhaChama({action:'setReserva',mes:mes,valor:String(val)},'retirada do consignado em '+mes);
+  if(r.ok){orcMsg('✅ Retirada do consignado em '+mes+' gravada na planilha.');await pjReservaCarrega();}
+  else{orcMsg(r.msg.replace('o valor ficou salvo só no app','o valor não foi alterado na planilha'));renderMes();}
+}
+function renderMes(){
+  const hero=document.getElementById('mes-hero');if(!hero)return;
+  const catsEl=document.getElementById('mes-cats'),conEl=document.getElementById('mes-consig');
+  const cats=window.__cats;
+  if(!cats){hero.innerHTML='<div class="empty">toque em sincronizar (ícone no topo) para carregar o mês</div>';catsEl.innerHTML='';conEl.innerHTML='';return;}
+  const o=getOrc(),mm=orcMes(o,currentMonth),sh=window.__sh||{};
+  const nome=(MONTHS[currentMonth]||{label:''}).label;
+  const plan=window.__tp||0,gasto=window.__te||0,sal=mm.sal||0,ext=mm.ext||0;
+  const sobra=sal-plan,falta=sobra<0?-sobra:0;
+  const cc=(mm.cc!=null?mm.cc:(sh.salCC!=null?sh.salCC:sal));
+  const sub=(sh.sub!=null&&sh.ext===mm.ext)?sh.sub:cc+ext;
+  const saldoC=sh.saldo!=null?sh.saldo:sub-gasto;
+  const pct=plan>0?Math.min(100,Math.round(gasto/plan*100)):0,over=gasto>plan&&plan>0;
+  const restante=plan-gasto;
+  const lin=mesLinhaRes();
+  let h=`<div class="ctitle"><i class="ti ti-calendar-month"></i>${nome}</div>
+    <div class="row"><span class="rl">vou receber (salário)</span><span class="rv g">${brl(sal)}</span></div>
+    <div class="row"><span class="rl">vai sair (planejado)</span><span class="rv a">${brl(plan)}</span></div>
+    <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">${sobra>=0?'sobra prevista':'falta prevista'}</span><span class="rv ${sobra>=0?'g':'r'}" style="font-weight:600">${brl(Math.abs(sobra))}</span></div>
+    ${ext>0?`<div style="font-size:11px;color:var(--text3);margin-top:2px">renda extra de ${brl(ext)} não entra nessa conta; ela soma só no saldo em conta.</div>`:''}
+    <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>gasto até agora: <b>${brl(gasto)}</b></span><span style="color:var(--text3)">de ${brl(plan)}</span></div>
+    <div class="pb"><div class="pf" style="width:${pct}%;background:${over?'var(--danger)':'var(--accent)'}"></div></div></div>
+    <div class="row" style="margin-top:6px"><span class="rl">${restante>=0?'ainda posso gastar do planejado':'acima do planejado'}</span><span class="rv ${restante>=0?'g':'r'}">${brl(Math.abs(restante))}</span></div>
+    <div class="row"><span class="rl">saldo em conta agora</span><span class="rv ${saldoC>=0?'g':'r'}">${pjMoney(saldoC)}</span></div>`;
+  if(falta>0){
+    const ret=lin?lin.v:null;
+    h+=`<div class="alert ad" style="margin-top:10px"><i class="ti ti-alert-triangle"></i><span>O salário não cobre o planejado: faltam <b>${brl(falta)}</b>. ${ret!=null?(Math.abs(ret-falta)<0.01?'A retirada do consignado já está registrada com esse valor.':'Retirada do consignado registrada: '+brl(ret)+'.'):'Veja o consignado abaixo.'}</span></div>`;
+  }else h+=`<div class="alert as" style="margin-top:10px"><i class="ti ti-check"></i><span>O salário cobre o planejado; sobram <b>${brl(sobra)}</b> neste mês.</span></div>`;
+  hero.innerHTML=h;
+  // categorias
+  const ent=Object.entries(cats);
+  let tp=0,te=0;
+  const bloco=ent.map(([k,d])=>{
+    tp+=d.plan;te+=d.efet;
+    const ab=!!mesAberto[k],p=d.plan>0?Math.min(100,Math.round(d.efet/d.plan*100)):0,ov=d.efet>d.plan&&d.plan>0;
+    const nm=k.charAt(0)+k.slice(1).toLowerCase();
+    const itens=d.items.map(it=>`<div class="sdi" onclick="orcEditar(${it.i})" style="cursor:pointer;padding:9px 14px"><div class="sdi-top"><span style="font-weight:500">${it.item}${it.ed?' ✎':''}</span><span><b style="color:${it.efet>0?'var(--danger-text)':'var(--text3)'}">${it.efet>0?brl(it.efet):'—'}</b> <span style="color:var(--text3);font-size:11px">/ ${brl(it.plan)}</span></span></div>${(it.venc||it.descricao)?`<div class="sdi-bot">${it.venc?'venc: '+it.venc:''}${it.venc&&it.descricao?' · ':''}${it.descricao||''}</div>`:''}</div>`).join('');
+    return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
+      <div onclick="mesToggle('${k}')" style="padding:12px 14px;cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600"><span>${d.icon} ${nm}</span><span style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:400;color:var(--text2)">${brl(d.efet)} <span style="color:var(--text3)">/ ${brl(d.plan)}</span></span><i class="ti ti-chevron-${ab?'up':'down'}" style="color:var(--text3)"></i></span></div>
+        <div class="pb" style="margin-top:8px;height:6px"><div class="pf" style="width:${p}%;background:${ov?'var(--danger)':'var(--accent)'}"></div></div>
+      </div>
+      ${ab?`<div style="border-top:.5px solid var(--border)">${itens||'<div class="empty" style="padding:10px">sem itens</div>'}
+        <div style="display:flex;gap:8px;padding:10px 14px"><button class="orc-ed" style="margin:0;flex:1" onclick="lancAbre('${k}')">+ lançar gasto</button><button class="orc-ed" style="margin:0;flex:1" onclick="orcNovo('${k}')">+ novo item planejado</button></div>
+        <div style="font-size:11px;color:var(--text3);padding:0 14px 10px">Toque em um item para editar o planejado e o gasto.</div></div>`:''}
+    </div>`;
+  }).join('');
+  const dif=tp-te;
+  catsEl.innerHTML=(bloco||'<div class="empty">nenhuma categoria encontrada</div>')+
+    `<div class="card"><div class="row"><span class="rl">total planejado</span><span class="rv a">${brl(tp)}</span></div><div class="row"><span class="rl">total gasto</span><span class="rv r">${brl(te)}</span></div>
+     <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">${dif>=0?'ainda a gastar':'acima do planejado'}</span><span class="rv ${dif>=0?'g':'r'}" style="font-weight:600">${brl(Math.abs(dif))}</span></div></div>`;
+  // consignado
+  if(document.activeElement&&conEl.contains(document.activeElement))return;
+  if(!pjResSheet||!pjResSheet.length){conEl.innerHTML=`<div class="card"><div class="ctitle"><i class="ti ti-piggy-bank"></i>consignado Nubank</div><div class="empty">${pjResErro||'carregando da planilha...'}</div></div>`;return;}
+  const ini=pjResSheet[0].v,final=pjResSheet[pjResSheet.length-1].saldo;
+  const mesN=MES_NOME[currentMonth];
+  let c=`<div class="card"><div class="ctitle"><i class="ti ti-piggy-bank"></i>consignado Nubank <span style="font-weight:400;color:var(--text3)">— o que ainda tenho</span></div>
+    <div class="row"><span class="rl">valor total do consignado</span><span class="rv g">${brl(ini)}</span></div>`;
+  if(lin){
+    c+=`<div class="orc-row"><label for="orc-ret">retirei em ${mesN.toLowerCase()}</label><input type="number" id="orc-ret" step="0.01" inputmode="decimal" value="${lin.v}" onchange="mesRetira(this.value)"></div>`;
+    if(lin.saldo!=null&&lin.saldo!==lin.v)c+=`<div class="row"><span class="rl">ainda no consignado depois de ${mesN.toLowerCase()}</span><span class="rv ${lin.saldo<0?'r':'g'}">${pjMoney(lin.saldo)}</span></div>`;
+    if(falta>0&&Math.abs(lin.v-falta)>0.01)c+=`<button class="orc-ed" style="margin:6px 0 0" onclick="mesRetira(${falta.toFixed(2)})">retirar a falta do mês (${brl(falta)})</button>`;
+  }else c+=`<div style="font-size:12px;color:var(--text3);margin:6px 0">Não achei a linha de ${mesN.toLowerCase()} na seção "Projeção de uso da reserva" da aba Dashboard.</div>`;
+  c+=`<div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">ainda no consignado ao fim da projeção</span><span class="rv ${final<0?'r':'g'}" style="font-weight:600">${pjMoney(final)}</span></div>
+    <details style="margin-top:6px"><summary style="font-size:12px;color:var(--text3);cursor:pointer">ver todos os meses</summary>${pjResSheet.map((r,i)=>`<div class="row"><span class="rl">${r.l}${r.saldo!=null&&i>0&&r.saldo!==r.v?`<br><span style="font-size:11px;color:var(--text3)">sobra ${pjMoney(r.saldo)}</span>`:''}</span><span class="rv ${i===0?'g':'r'}">${r.v==null?'—':brl(r.v)}</span></div>`).join('')}</details></div>`;
+  conEl.innerHTML=c;
+}
+(function(){const f=pjRender;pjRender=function(){f.apply(this,arguments);try{renderMes();}catch(e){}};})();
+(function(){const o=window.syncAll;window.syncAll=async function(){await o.apply(this,arguments);try{await pjReservaCarrega();}catch(e){}};})();
 document.addEventListener('DOMContentLoaded',()=>setTimeout(renderOrc,50));
 
 let DIVIDAS=[{nome:'Consignado Nubank',tipo:'Consignado',total:48,pagas:0,valorParc:1580.83,venc:'Folha/out',saldo:50000.00,obs:'início out/2026 — desconta em folha'},{nome:'Consignado Santander',tipo:'Consignado',total:96,pagas:52,valorParc:929.23,venc:'Folha',saldo:13253.49,obs:'50 parcelas adiantadas set/26'},{nome:'Boleto BB 1/60',tipo:'Boleto',total:60,pagas:3,valorParc:77.72,venc:'Dia 14',saldo:4506.76,obs:''},{nome:'Boleto BB 19/60',tipo:'Boleto',total:60,pagas:20,valorParc:159.15,venc:'Dia 29',saldo:6566.05,obs:''}];
@@ -2219,12 +2295,12 @@ const CAT_ICONS={'INVESTIMENTO':'💸','MORADIA':'🏠','TRANSPORTE':'🚗','ALI
 const brl=v=>isNaN(v)||v===null?'—':'R$ '+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const parseBRL=s=>{if(!s)return 0;const c=s.toString().replace(/R\$\s*/,'').replace(/\s/g,'').replace(/\./g,'').replace(',','.');return parseFloat(c)||0;};
 function detectCat(text){if(!text)return null;const u=text.toUpperCase().replace(/[💸🏠🚗🍽👤🐾💳📈➕\s]/g,'');for(const k of CAT_KEYS){const ku=k.replace(/Ã/g,'A').replace(/Ç/g,'C');const uu=u.replace(/Ã/g,'A').replace(/Ç/g,'C');if(uu===k||uu===ku||u===k||u.includes(k)||uu.includes(ku))return k;}return null;}
-function onMonthChange(){currentMonth=document.getElementById('month-select').value;window.__sh=null;window.__tp=null;const cfg=MONTHS[currentMonth];const mes=cfg.label.split('/')[0].toLowerCase();document.getElementById('resumo-title').textContent=`resumo — ${mes}/${cfg.label.split('/')[1]}`;syncAll();}
+function onMonthChange(){currentMonth=document.getElementById('month-select').value;window.__sh=null;window.__tp=null;window.__cats=null;const cfg=MONTHS[currentMonth];const mes=cfg.label.split('/')[0].toLowerCase();document.getElementById('resumo-title').textContent=`resumo — ${mes}/${cfg.label.split('/')[1]}`;syncAll();}
 function showScreen(id,title,sub,btn){document.querySelectorAll('#mod-financas .screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('#nav-financas .nb').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');if(btn)btn.classList.add('active');document.getElementById('tt').textContent=title;document.getElementById('ts').textContent=sub;if(id==='projecao'){pjRender();pjReservaCarrega();setTimeout(initChart,50);}if(id==='dividas'){renderDividas();divCarrega();}if(id==='wishlist')renderWishlist();}
 function showP(id,btn){['curto','reserva','medio','marcos'].forEach(k=>{const el=document.getElementById('proj-'+k);if(el)el.style.display=k===id?'block':'none';});document.querySelectorAll('#screen-projecao .tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');if(id==='curto')setTimeout(initChart,50);pjRender();}
 async function fetchSheet(range,formatted=false){const render=formatted?'FORMATTED_VALUE':'UNFORMATTED_VALUE';const url=`${BASE}/${encodeURIComponent(range)}?key=${API_KEY}&valueRenderOption=${render}&dateTimeRenderOption=FORMATTED_STRING`;const res=await fetch(url);if(!res.ok){const e=await res.json();throw new Error(e.error?.message||'HTTP '+res.status);}const d=await res.json();return d.values||[];}
 async function syncAll(){const btn=document.getElementById('sbtn');btn.classList.add('loading');document.getElementById('ts').textContent='sincronizando...';try{const m=currentMonth;const cfg=MONTHS[m];const[rows,saldoCell]=await Promise.all([fetchSheet(`${m}!B1:G100`),fetchSheet(cfg.saldo,true)]);processData(rows);if(saldoCell&&saldoCell[0]&&saldoCell[0][0]!==undefined){const raw=saldoCell[0][0];const saldo=typeof raw==='number'?raw:parseBRL(String(raw));if(!isNaN(saldo)){document.getElementById('m-saldo').textContent=brl(saldo);document.getElementById('m-saldo').className='mval '+(saldo>=0?'g':'r');}}document.getElementById('ts').textContent=MONTHS[currentMonth].label+' · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}catch(e){document.getElementById('ts').textContent='erro: '+e.message;document.getElementById('sheet-resumo').innerHTML=`<div class="alert ad"><i class="ti ti-alert-triangle"></i><span>erro ao carregar: ${e.message}</span></div>`;}btn.classList.remove('loading');}
-function processData(rows){const cats={};let currentCat=null;let te=0,tp=0;rows.forEach(row=>{const item=String(row[0]||'').trim();const efetRaw=row[2];const planRaw=row[3];if(!item)return;const catKey=detectCat(item);if(catKey&&!efetRaw&&!planRaw){currentCat=catKey;if(!cats[currentCat])cats[currentCat]={efet:0,plan:0,icon:CAT_ICONS[catKey]||'📌',items:[]};return;}if(currentCat){const efet=typeof efetRaw==='number'?efetRaw:parseBRL(efetRaw);const plan=typeof planRaw==='number'?planRaw:parseBRL(planRaw);const venc=String(row[1]||'').trim();const status=String(row[4]||'').trim();const desc=String(row[5]||'').trim();if(efet>0||plan>0){cats[currentCat].efet+=efet;cats[currentCat].plan+=plan;te+=efet;tp+=plan;cats[currentCat].items.push({item,venc,efet,plan,status,descricao:desc,cat:currentCat});}}});tp=orcAplica(cats);window.__tp=tp;window.__te=te;document.getElementById('m-efet').textContent=brl(te);document.getElementById('m-plan').textContent=brl(tp);renderResumo(cats,te,tp);renderCatBars(cats);renderSheetLancs(cats);renderOrc();}
+function processData(rows){const cats={};let currentCat=null;let te=0,tp=0;rows.forEach(row=>{const item=String(row[0]||'').trim();const efetRaw=row[2];const planRaw=row[3];if(!item)return;const catKey=detectCat(item);if(catKey&&!efetRaw&&!planRaw){currentCat=catKey;if(!cats[currentCat])cats[currentCat]={efet:0,plan:0,icon:CAT_ICONS[catKey]||'📌',items:[]};return;}if(currentCat){const efet=typeof efetRaw==='number'?efetRaw:parseBRL(efetRaw);const plan=typeof planRaw==='number'?planRaw:parseBRL(planRaw);const venc=String(row[1]||'').trim();const status=String(row[4]||'').trim();const desc=String(row[5]||'').trim();if(efet>0||plan>0){cats[currentCat].efet+=efet;cats[currentCat].plan+=plan;te+=efet;tp+=plan;cats[currentCat].items.push({item,venc,efet,plan,status,descricao:desc,cat:currentCat});}}});tp=orcAplica(cats);window.__tp=tp;window.__te=te;window.__cats=cats;renderOrc();}
 function renderResumo(cats,te,tp){const over=te>tp;document.getElementById('sheet-resumo').innerHTML=`<div class="row"><span class="rl">total efetivado</span><span class="rv r">${brl(te)}</span></div><div class="row"><span class="rl">total planejado</span><span class="rv a">${brl(tp)}</span></div><div class="row"><span class="rl">${over?'⚠️ acima':'✅ dentro'} do planejado</span><span class="rv ${over?'r':'g'}">${over?'+':'−'}${brl(Math.abs(te-tp))}</span></div><div class="row"><span class="rl">categorias detectadas</span><span class="rv">${Object.keys(cats).length}</span></div>`;}
 function renderCatBars(cats){const el=document.getElementById('cat-bars');if(!Object.keys(cats).length){el.innerHTML='<div class="empty">nenhuma categoria detectada</div>';return;}el.innerHTML=Object.entries(cats).map(([k,d])=>{const pct=d.plan>0?Math.min(100,Math.round((d.efet/d.plan)*100)):0;const over=d.efet>d.plan&&d.plan>0;return`<div class="cat-item"><div class="cat-info"><span>${d.icon} ${k.charAt(0)+k.slice(1).toLowerCase()}</span><span>${brl(d.efet)} / ${brl(d.plan)}</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${over?'var(--danger)':'var(--accent)'}"></div></div></div>`;}).join('');}
 function renderSheetLancs(cats){
@@ -2243,7 +2319,7 @@ function renderSheetLancs(cats){
     <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">${dif>=0?'ainda a gastar do planejado':'acima do planejado'}</span><span class="rv ${dif>=0?'g':'r'}" style="font-weight:600">${brl(dif)}</span></div>`;
 }
 async function loadSubcats(){const cat=document.getElementById('cat').value;const wrap=document.getElementById('subcat-wrap');const sel=document.getElementById('subcat');if(!cat){wrap.style.display='none';return;}wrap.style.display='block';sel.innerHTML='<option>carregando...</option>';try{const params=new URLSearchParams({action:'getSubcats',categoria:cat,aba:currentMonth});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success&&d.subcats&&d.subcats.length){sel.innerHTML=d.subcats.map(s=>`<option value="${s}">${s}</option>`).join('');}else{sel.innerHTML='<option value="">— nenhuma subcategoria —</option>';}}catch(e){sel.innerHTML='<option value="">— erro ao carregar —</option>';}}
-async function addLanc(){const valor=parseFloat(document.getElementById('valor').value);const cat=document.getElementById('cat').value;const subcat=document.getElementById('subcat').value;const status=document.getElementById('status').value;const descDetalhe=document.getElementById('desc-detalhe').value.trim();const err=document.getElementById('ferr');if(!cat){err.textContent='selecione a categoria';err.style.display='block';return;}if(!subcat){err.textContent='selecione a subcategoria';err.style.display='block';return;}if(!valor||valor<=0){err.textContent='informe um valor válido';err.style.display='block';return;}err.style.display='none';const btn=document.querySelector('#screen-gastos .btn.bp');btn.textContent='enviando...';btn.disabled=true;try{const params=new URLSearchParams({action:'addLancamento',aba:currentMonth,categoria:cat,subcategoria:subcat,valor:valor.toFixed(2),status,descricao:descDetalhe});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success){document.getElementById('valor').value='';document.getElementById('desc-detalhe').value='';document.getElementById('cat').value='';document.getElementById('subcat-wrap').style.display='none';err.style.color='var(--success-text)';err.style.display='block';err.textContent=`✅ ${subcat}: +R$ ${valor.toFixed(2).replace('.',',')} → total R$ ${parseFloat(d.total).toFixed(2).replace('.',',')}`;setTimeout(()=>{err.style.display='none';err.style.color='var(--danger-text)';syncAll();},2500);}else{err.textContent='erro: '+(d.error||'desconhecido');err.style.display='block';}}catch(e){err.textContent='erro de conexão: '+e.message;err.style.display='block';}btn.innerHTML='<i class="ti ti-plus"></i>adicionar e enviar';btn.disabled=false;}
+async function addLanc(){const valor=parseFloat(document.getElementById('valor').value);const cat=document.getElementById('cat').value;const subcat=document.getElementById('subcat').value;const status=document.getElementById('status').value;const descDetalhe=document.getElementById('desc-detalhe').value.trim();const err=document.getElementById('ferr');if(!cat){err.textContent='selecione a categoria';err.style.display='block';return;}if(!subcat){err.textContent='selecione a subcategoria';err.style.display='block';return;}if(!valor||valor<=0){err.textContent='informe um valor válido';err.style.display='block';return;}err.style.display='none';const btn=document.querySelector('#modal-lanc .btn.bp');btn.textContent='enviando...';btn.disabled=true;try{const params=new URLSearchParams({action:'addLancamento',aba:currentMonth,categoria:cat,subcategoria:subcat,valor:valor.toFixed(2),status,descricao:descDetalhe});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success){document.getElementById('valor').value='';document.getElementById('desc-detalhe').value='';document.getElementById('cat').value='';document.getElementById('subcat-wrap').style.display='none';err.style.color='var(--success-text)';err.style.display='block';err.textContent=`✅ ${subcat}: +R$ ${valor.toFixed(2).replace('.',',')} → total R$ ${parseFloat(d.total).toFixed(2).replace('.',',')}`;setTimeout(()=>{err.style.display='none';err.style.color='var(--danger-text)';lancFecha();syncAll();},1800);}else{err.textContent='erro: '+(d.error||'desconhecido');err.style.display='block';}}catch(e){err.textContent='erro de conexão: '+e.message;err.style.display='block';}btn.innerHTML='<i class="ti ti-plus"></i>adicionar e enviar';btn.disabled=false;}
 function renderDividas(){let totalDiv=0,totalMensal=0;const grupos={};divEff().forEach(e=>{const restam=e.total-e.pagas;const pct=e.total>0?Math.round((e.pagas/e.total)*100):0;if(e.saldo>0)totalDiv+=e.saldo;if(e.valorParc>0&&restam>0)totalMensal+=e.valorParc;if(!grupos[e.tipo])grupos[e.tipo]=[];grupos[e.tipo].push({...e,restam,pct});});document.getElementById('div-total').textContent=brl(totalDiv);document.getElementById('div-mensal').textContent=brl(totalMensal);const tipoIcon={'Consignado':'🏦','Boleto':'📄','Cartão':'💳'};const tipoColor={'Consignado':'var(--danger)','Boleto':'var(--warning)','Cartão':'var(--accent)'};let html='';Object.entries(grupos).forEach(([tipo,items])=>{html+=`<div class="card"><div class="ctitle">${tipoIcon[tipo]||'📋'} ${tipo.toLowerCase()}s</div>`;items.forEach(e=>{const cor=e.restam===0?'var(--success)':tipoColor[e.tipo]||'var(--text3)';const badgeClass=e.restam===0?'bok':e.pct>50?'bpend':'bred';html+=`<div class="loan-card"><div class="loan-top"><span class="loan-name">${e.nome}</span><span class="badge ${badgeClass}">${e.restam===0?'✅ quitado':`${e.pagas}/${e.total}x · ${brl(e.valorParc)}`}</span></div><div class="loan-info"><span>${e.saldo>0?'saldo: '+brl(e.saldo):'quitado'}${e.ed?' ✎':''}</span><span>${e.venc?'venc: '+e.venc:''}</span></div><div style="display:flex;gap:6px;margin:4px 0"><button class="orc-ed" style="margin:0" onclick="divEditar(\'${e.nome}\')">editar</button>${e.restam>0?`<button class="orc-ed" style="margin:0" onclick="divMaisUma(\'${e.nome}\')">+1 parcela paga</button>`:''}${e.pagas>0?`<button class="orc-ed" style="margin:0" onclick="divMenosUma(\'${e.nome}\')">−1</button>`:''}</div><div class="loan-progress"><div class="pl"><span>${e.pagas} pagas · ${e.restam} restantes</span><span>${e.pct}%</span></div><div class="pb"><div class="pf" style="width:${e.pct}%;background:${cor}"></div></div></div>${e.obs?`<div style="font-size:11px;color:var(--accent-text);background:var(--accent-bg);padding:4px 8px;border-radius:4px;margin-top:4px">📝 ${e.obs}</div>`:''}</div>`;});html+='</div>';});document.getElementById('div-lista').innerHTML=html;}
 function addV(n){vendas+=n;localStorage.setItem('vendas',vendas);updV();}
 function resetV(){vendas=0;localStorage.setItem('vendas',0);updV();}
