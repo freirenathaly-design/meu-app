@@ -74,13 +74,33 @@ object Widgets {
             if (wDp <= 0) wDp = 300
             if (hDp <= 0) hDp = 420
             var wPx = ((wDp - 28) * d).toInt()
-            var hPx = ((hDp - 8 - 10 - 44 - 14) * d).toInt()
+            val dispDp = hDp - 8 - 10 - 44 - 14
+            var hPx = (dispDp * 0.58 * d).toInt()
             while (wPx.toLong() * hPx * 4 > 3_000_000L) { wPx = wPx * 9 / 10; hPx = hPx * 9 / 10 }
             val bmp = CalRender.render(c, wPx, hPx, ano, mes, itens, dark)
 
             val rv = RemoteViews(c.packageName, R.layout.widget_agenda)
             rv.setImageViewBitmap(R.id.acal, bmp)
             rv.setTextViewText(R.id.atitle, titulo)
+            // lista dos compromissos de hoje, abaixo do calendário
+            val hojeCal = Calendar.getInstance()
+            val evs = Data.eventosDoDia(c, CalRender.key(hojeCal))
+            val cabe = Math.max(1, Math.min(5, ((dispDp * 0.42 - 22) / 20).toInt()))
+            rv.setTextViewText(R.id.ahoje, "HOJE · %02d/%02d".format(hojeCal.get(Calendar.DAY_OF_MONTH), hojeCal.get(Calendar.MONTH) + 1))
+            val mostrar = if (evs.size > cabe) cabe - 1 else evs.size
+            for (i in 0 until 5) {
+                val row = id(c, "ar$i")
+                if (i < mostrar) {
+                    rv.setViewVisibility(row, View.VISIBLE)
+                    rv.setTextViewText(id(c, "ah$i"), if (evs[i].hora.isEmpty()) "dia todo" else evs[i].hora)
+                    rv.setTextViewText(id(c, "at$i"), evs[i].titulo)
+                } else if (i == mostrar && evs.size > cabe) {
+                    rv.setViewVisibility(row, View.VISIBLE)
+                    rv.setTextViewText(id(c, "ah$i"), "")
+                    rv.setTextViewText(id(c, "at$i"), "+" + (evs.size - mostrar) + " mais")
+                } else rv.setViewVisibility(row, View.GONE)
+            }
+            rv.setViewVisibility(R.id.avazio, if (evs.isEmpty()) View.VISIBLE else View.GONE)
             rv.setTextViewText(R.id.afoot, if (!Data.hasToken(c)) "Abra o app uma vez para ativar o widget." else rodape(c, erro))
             rv.setOnClickPendingIntent(R.id.aroot, abrirApp(c, 1))
             rv.setOnClickPendingIntent(R.id.acal, abrirApp(c, 1))

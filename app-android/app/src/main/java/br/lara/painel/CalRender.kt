@@ -13,6 +13,7 @@ import kotlin.math.floor
 import kotlin.math.max
 
 data class Item(val titulo: String, val ini: String, val fim: String, val cor: Int)
+data class Linha(val hora: String, val titulo: String)
 
 object CalRender {
     private val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)

@@ -59,6 +59,33 @@ object Data {
         return out
     }
 
+    /** Compromissos e to-dos de um dia (yyyy-MM-dd), os de dia todo primeiro e depois por hora. */
+    fun eventosDoDia(c: Context, dia: String): List<Linha> {
+        val out = ArrayList<Linha>()
+        try {
+            val arr = JSONArray(prefs(c).getString("agdEventos", "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val data = o.optString("data")
+                if (data.isEmpty()) continue
+                val fim = o.optString("fim").let { if (it.isEmpty() || it < data) data else it }
+                if (dia < data || dia > fim) continue
+                out.add(Linha(o.optString("hora").take(5), o.optString("titulo")))
+            }
+        } catch (_: Exception) { }
+        try {
+            val arr = JSONArray(prefs(c).getString("facTodoGeral", "[]") ?: "[]")
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                if (o.optBoolean("done", false)) continue
+                if (o.has("agd") && !o.optBoolean("agd", true)) continue
+                if (o.optString("data") != dia) continue
+                out.add(Linha("", "\u2610 " + o.optString("nome")))
+            }
+        } catch (_: Exception) { }
+        return out.sortedWith(compareBy({ it.hora }, { it.titulo }))
+    }
+
     fun lastUpdate(c: Context) = prefs(c).getLong("updated", 0L)
 
     /** Busca os dados na nuvem. Devolve null se deu certo ou uma mensagem de erro curta. */
