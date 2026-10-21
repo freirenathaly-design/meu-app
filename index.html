@@ -1397,6 +1397,24 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <div id="screen-fac-assuntos" class="screen">
         <div id="fac-assuntos-content"></div>
       </div>
+      <div id="screen-fac-notas" class="screen">
+        <div class="fac-sem-sel" id="fac-sem-sel3"></div>
+        <div class="card">
+          <div class="ctitle"><i class="ti ti-school"></i>nova nota</div>
+          <select id="fn-cad"></select>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <select id="fn-tipo" style="flex:1"><option>P1</option><option>P2</option><option>P3</option><option>Prática</option><option>Seminário</option><option>Trabalho</option><option>Outra</option></select>
+            <input type="number" id="fn-nota" step="0.01" min="0" max="10" inputmode="decimal" placeholder="nota (0 a 10)" style="flex:1;min-width:0">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input type="date" id="fn-data" style="flex:1;min-width:0">
+            <input type="number" id="fn-peso" step="0.1" min="0" inputmode="decimal" placeholder="peso (opcional)" style="flex:1;min-width:0">
+          </div>
+          <div id="fn-err" style="font-size:12px;color:var(--danger-text);margin-top:6px;display:none"></div>
+          <button class="btn bp" style="margin-top:8px" onclick="addFacNota()"><i class="ti ti-plus"></i>adicionar nota</button>
+        </div>
+        <div id="fac-notas-lista"></div>
+      </div>
       <div id="screen-fac-cadeiras" class="screen">
         <div class="fac-sem-sel" id="fac-sem-sel2"></div>
         <div id="fac-cadeiras-lista"></div>
@@ -1464,6 +1482,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <button class="nb active" onclick="showFacScreen('semana',this)"><i class="ti ti-calendar-week"></i>Semana</button>
       <button class="nb" onclick="showFacScreen('assuntos',this)"><i class="ti ti-checklist"></i>Assuntos</button>
       <button class="nb" onclick="showFacScreen('todo',this);initFacTodoGeral()"><i class="ti ti-list-check"></i>To-do</button>
+      <button class="nb" onclick="showFacScreen('notas',this)"><i class="ti ti-school"></i>Notas</button>
       <button class="nb" onclick="showFacScreen('cronometro',this);initCronCadSel();renderEstudoCal()"><i class="ti ti-clock"></i>Estudo</button>
     </nav>
   </div>
@@ -1675,7 +1694,7 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
   'use strict';
   var KEYS = ['vendas', 'treinoData', 'treinoSessoes', 'treinoBloco', 'treinoCheckins', 'pesoLog',
     'dietaStatus', 'dietaCheck', 'casaTasks', 'casaDone', 'feiraItems', 'livros', 'planoLeitura',
-    'wishlistItems', 'agdEventos', 'agdCats', 'facCadeiras', 'facTodoGeral', 'estudoLog', 'notas', 'facAssuntos', 'corCats', 'fundoCats', 'orcamento', 'projCfg', 'dividasCfg'];
+    'wishlistItems', 'agdEventos', 'agdCats', 'facCadeiras', 'facTodoGeral', 'estudoLog', 'notas', 'facAssuntos', 'facNotas', 'corCats', 'fundoCats', 'orcamento', 'projCfg', 'dividasCfg'];
   var ENDPOINT = '/api/sync';
   var META_KEY = 'syncMeta';   // { chave: instante da ultima edicao } - fica so neste aparelho
   var TOKEN_KEY = 'syncToken'; // senha de sincronizacao - fica so neste aparelho
@@ -4621,10 +4640,11 @@ function showFacScreen(id,btn){
   if(id==='semana')renderFacSemana();
   if(id==='assuntos')renderFacAssuntos();
   if(id==='cadeiras')renderFacCadeiras();
+  if(id==='notas')renderFacNotas();
 }
 
 function renderFacSemSel(){
-  ['fac-sem-sel','fac-sem-sel2'].forEach(selId=>{
+  ['fac-sem-sel','fac-sem-sel2','fac-sem-sel3'].forEach(selId=>{
     const el=document.getElementById(selId);if(!el)return;
     el.innerHTML=FAC_SEMS.map(s=>`<button class="fac-sem-btn${s===facSemAtual?' active':''}" onclick="facSetSem('${s}',this)">${s}</button>`).join('');
   });
@@ -4635,8 +4655,54 @@ function facSetSem(sem){
   document.querySelectorAll('.fac-sem-btn').forEach(b=>b.classList.toggle('active',b.textContent===sem));
   renderFacSemana();
   renderFacCadeiras();
+  renderFacNotas();
 }
 
+
+/* ===== NOTAS DAS PROVAS ===== */
+function getFacNotas(){try{return JSON.parse(localStorage.getItem('facNotas')||'[]')||[];}catch(e){return[];}}
+function saveFacNotas(l){localStorage.setItem('facNotas',JSON.stringify(l));}
+function fnFmt(n){return (Math.round(n*100)/100).toString().replace('.',',');}
+function fnMedia(l){let sp=0,sn=0;l.forEach(x=>{const p=(x.peso>0?x.peso:1);sn+=x.nota*p;sp+=p;});return sp?sn/sp:null;}
+function addFacNota(){
+  const err=document.getElementById('fn-err');const show=t=>{err.textContent=t;err.style.display='block';};
+  const cad=document.getElementById('fn-cad').value;
+  const nota=parseFloat(String(document.getElementById('fn-nota').value).replace(',','.'));
+  const peso=parseFloat(String(document.getElementById('fn-peso').value).replace(',','.'));
+  if(!cad)return show('escolha a cadeira');
+  if(isNaN(nota)||nota<0||nota>10)return show('informe uma nota entre 0 e 10');
+  err.style.display='none';
+  const l=getFacNotas();
+  l.push({id:'fn'+Date.now(),cad:cad,tipo:document.getElementById('fn-tipo').value,nota:nota,peso:(peso>0?peso:0),data:document.getElementById('fn-data').value,ts:Date.now()});
+  saveFacNotas(l);
+  document.getElementById('fn-nota').value='';document.getElementById('fn-data').value='';document.getElementById('fn-peso').value='';
+  renderFacNotas();
+}
+function editFacNota(id){
+  const l=getFacNotas();const x=l.find(z=>z.id===id);if(!x)return;
+  const v=prompt('Nova nota de '+x.tipo+' (0 a 10):',String(x.nota).replace('.',','));
+  if(v===null)return;const n=parseFloat(String(v).replace(',','.'));
+  if(isNaN(n)||n<0||n>10){alert('Nota inválida.');return;}
+  x.nota=n;saveFacNotas(l);renderFacNotas();
+}
+function delFacNota(id){if(!confirm('Excluir esta nota?'))return;saveFacNotas(getFacNotas().filter(z=>z.id!==id));renderFacNotas();}
+function renderFacNotas(){
+  const el=document.getElementById('fac-notas-lista');if(!el)return;
+  const sel=document.getElementById('fn-cad');
+  const cads=getFacCadeiras().filter(c=>c.semestre===facSemAtual);
+  if(sel){const atual=sel.value;sel.innerHTML=cads.length?cads.map(c=>`<option value="${c.id}">${escCr(c.nome)}</option>`).join(''):'<option value="">sem cadeiras neste semestre</option>';if(atual&&cads.some(c=>c.id===atual))sel.value=atual;}
+  const todas=getFacNotas();
+  if(!cads.length){el.innerHTML='<div class="empty" style="padding:18px 0">sem cadeiras em '+facSemAtual+'.</div>';return;}
+  const blocos=cads.map(c=>{
+    const ns=todas.filter(n=>n.cad===c.id).sort((a,b)=>(a.data||'9999').localeCompare(b.data||'9999')||a.ts-b.ts);
+    const m=fnMedia(ns);
+    const linhas=ns.map(n=>`<div class="row"><span class="rl">${escCr(n.tipo)}${n.data?` <span style="font-size:11px;color:var(--text3)">· ${fmtData(n.data)}</span>`:''}${n.peso>0?` <span style="font-size:11px;color:var(--text3)">· peso ${fnFmt(n.peso)}</span>`:''}</span><span style="display:flex;align-items:center;gap:8px"><span class="rv" style="cursor:pointer" onclick="editFacNota('${n.id}')">${fnFmt(n.nota)}</span><button class="agd-event-del" style="opacity:.5" onclick="delFacNota('${n.id}')"><i class="ti ti-trash"></i></button></span></div>`).join('');
+    return `<div class="card" style="margin-bottom:10px"><div class="ctitle" style="display:flex;justify-content:space-between;gap:8px"><span>${escCr(c.nome)}</span><span style="font-weight:400;color:var(--text2)">${m==null?'sem notas':'média '+fnFmt(m)}</span></div>${linhas||'<div class="empty" style="padding:6px 0;font-size:12px">nenhuma nota lançada</div>'}</div>`;
+  }).join('');
+  const comNota=cads.map(c=>fnMedia(todas.filter(n=>n.cad===c.id))).filter(x=>x!=null);
+  const geral=comNota.length?comNota.reduce((a,b)=>a+b,0)/comNota.length:null;
+  el.innerHTML=(geral!=null?`<div class="card" style="margin-bottom:10px"><div class="row"><span class="rl" style="font-weight:600">média geral de ${facSemAtual}</span><span class="rv" style="font-weight:600">${fnFmt(geral)}</span></div><div style="font-size:11px;color:var(--text3)">média das médias das cadeiras com nota.</div></div>`:'')+blocos+'<div style="font-size:11px;color:var(--text3);margin:4px 0 10px">Toque na nota para corrigir. Sem peso informado, as notas valem o mesmo.</div>';
+}
 function addFacTrabalho(){
   const n=document.getElementById('fx-nome'),d=document.getElementById('fx-data');
   if(!n||!n.value.trim())return;
