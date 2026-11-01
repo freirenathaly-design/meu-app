@@ -558,7 +558,13 @@ input:focus,select:focus{border-color:var(--accent)}
 .nota-row:last-child{border-bottom:none}
 .nota-chk{border:none;background:none;color:var(--accent-text);font-size:18px;cursor:pointer;padding:0;line-height:1.2}
 .nota-corpo{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
-.nota-form-in .nota-inp{flex:1 1 100%}.nota-form-in .nota-sel{flex:1;min-width:0}
+.nota-form-in .nota-inp{flex:1 1 0}.nota-form-in{flex-wrap:nowrap}
+#notas-card .nota-row{border-bottom:none;padding:4px 0;align-items:center}
+#notas-card .nota-chk{font-size:20px}
+#notas-card .nota-del{opacity:.3}
+#notas-card .nota-lista{max-height:240px}
+.nota-limpa{border:none;background:none;color:var(--text3);font-size:11px;cursor:pointer;padding:6px 0 0}
+.qa-btn.on{background:var(--success-bg);color:var(--success-text)}.nota-form-in .nota-sel{flex:1;min-width:0}
 .nota-txt{width:100%;min-width:0;font-size:13px;line-height:1.35;color:var(--text);word-break:break-word;outline:none;padding:1px 2px;border-radius:4px}
 .nota-txt:focus{background:var(--surface2)}
 .nota-row.feita .nota-txt{text-decoration:line-through;color:var(--text3)}
@@ -744,12 +750,6 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
     </button>
     <button class="mn" onclick="showMod('financas',this)" aria-label="Finanças">
       <i class="ti ti-wallet"></i>Finanças
-    </button>
-    <button class="mn" onclick="showMod('treino',this)" aria-label="Treino">
-      <i class="ti ti-barbell"></i>Treino
-    </button>
-    <button class="mn" onclick="showMod('dieta',this)" aria-label="Dieta">
-      <i class="ti ti-salad"></i>Dieta
     </button>
     <button class="mn" onclick="showMod('casa',this)" aria-label="Casa">
       <i class="ti ti-home-2"></i>Casa
@@ -4006,14 +4006,15 @@ function renderHabitosMes(){
     else if(day.hasDieta)cls+=' hd-dieta';
     else if(!day.isFuture&&day.key<=todayKey)cls+=' hd-miss';
     if(day.isToday)cls+=' hd-today';
-    html+=`<div class="${cls}">${day.d}</div>`;
+    html+=day.isFuture?`<div class="${cls}">${day.d}</div>`:`<div class="${cls}" style="cursor:pointer" onclick="habCicla('${day.key}')">${day.d}</div>`;
   });
   html+=`</div>`;
   html+=`<div class="hab-legend">
     <span class="hleg"><span class="hleg-dot" style="background:var(--accent)"></span>treino</span>
     <span class="hleg"><span class="hleg-dot" style="background:var(--success)"></span>dieta</span>
     <span class="hleg"><span class="hleg-dot" style="background:linear-gradient(135deg,var(--accent) 50%,var(--success) 50%)"></span>ambos</span>
-  </div>`;
+  </div>
+  <div style="font-size:11px;color:var(--text3);margin-top:6px">Toque em um dia para marcar: treino, dieta, ambos ou nada.</div>`;
   html+=`<div class="hab-stats">
     <div class="hs"><span class="hs-n" style="color:var(--accent-text)">${tDias}</span><span class="hs-l">treinos</span></div>
     <div class="hs"><span class="hs-n" style="color:var(--success-text)">${dDias}</span><span class="hs-l">dieta ok</span></div>
@@ -4023,6 +4024,29 @@ function renderHabitosMes(){
   return html;
 }
 
+
+/* hábitos: marcação direta pela página inicial */
+function habSalva(){localStorage.setItem('treinoData',JSON.stringify(treinoData));localStorage.setItem('dietaStatus',JSON.stringify(dietaStatus));renderInicio();}
+function habSet(key,t,d){
+  if(t){if(!treinoData[key]||treinoData[key]==='descanso')treinoData[key]='musculacao';}else delete treinoData[key];
+  if(d)dietaStatus[key]='ok';else delete dietaStatus[key];
+  habSalva();
+}
+function habCicla(key){
+  const t=!!(treinoData[key]&&treinoData[key]!=='descanso'),d=dietaStatus[key]==='ok';
+  const p=(!t&&!d)?[1,0]:(t&&!d?[0,1]:(!t&&d?[1,1]:[0,0]));
+  habSet(key,p[0],p[1]);
+}
+function qaTreino(){const k=getTodayKey();const t=!!(treinoData[k]&&treinoData[k]!=='descanso');habSet(k,!t,dietaStatus[k]==='ok');}
+function qaDieta(){const k=getTodayKey();const t=!!(treinoData[k]&&treinoData[k]!=='descanso');habSet(k,t,dietaStatus[k]!=='ok');}
+function qaPeso(){
+  const u=getPesoLog().slice(-1)[0];
+  const v=prompt('Peso de hoje (kg):',u?String(u.peso).replace('.',','):'');
+  if(v===null)return;
+  const n=parseFloat(String(v).replace(',','.'));
+  if(isNaN(n)||n<=0||n>400){alert('Peso inválido.');return;}
+  addPesoEntry(getTodayKey(),n);renderInicio();
+}
 function renderInicioLeitura(){
   const livros=getLivros();if(!livros.length)return'';
   const lendo=livros.filter(l=>l.status==='lendo');
@@ -4043,7 +4067,7 @@ function renderInicioLeitura(){
       html+=`<div class="row"><span class="rl" style="font-weight:500">${l.titulo}<span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:6px">${l.autor||''}</span></span><span class="rv" style="color:#f59e42;font-size:11px">${stars}</span></div>`;
     });
   }
-  html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('leitura',document.querySelectorAll('.mn')[5])"><i class="ti ti-book"></i>ver biblioteca</button></div>`;
+  html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('leitura',document.querySelectorAll('.mn')[3])"><i class="ti ti-book"></i>ver biblioteca</button></div>`;
   return html;
 }
 function renderInicioTarefas(){
@@ -4057,20 +4081,17 @@ function renderInicioTarefas(){
   return`<div class="card"><div class="ctitle"><i class="ti ti-home-2"></i>casa — tarefas de hoje</div>
     <div class="pw" style="margin-bottom:6px"><div class="pl"><span>${doneHoje} de ${total} tarefas diárias</span><span style="color:${pct===100?'var(--success-text)':'var(--text3)'}">${pct}%</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${pct===100?'var(--success)':'var(--accent)'}"></div></div></div>
     ${diarias.slice(0,3).map(t=>{const d=isCasaTaskDone(t.id,t.freq,done);return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;color:${d?'var(--text3)':'var(--text2)'}"><span style="color:${d?'var(--success-text)':'var(--border2)'}"><i class="ti ti-${d?'circle-check-filled':'circle'}"></i></span><span style="${d?'text-decoration:line-through':''}">${t.nome}</span></div>`;}).join('')}
-    <button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('casa',document.querySelectorAll('.mn')[4])"><i class="ti ti-home-2"></i>ver todas as tarefas</button></div>`;
+    <button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('casa',document.querySelectorAll('.mn')[2])"><i class="ti ti-home-2"></i>ver todas as tarefas</button></div>`;
 }
 function renderInicio(){
   const el=document.getElementById('inicio-content');if(!el)return;
   const hoje=new Date();
   const dataFmt=hoje.toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('inicio-sub').textContent=dataFmt;
-  const tStreak=getTreinoStreak();
-  const dStreak=getDietaStreak();
-  const tMes=getTreinoMesCount();
-  const kcalHoje=calcMacros(getTodayKey()).kcal;
-  const weekDays=getWeekDates();const doneWeek=weekDays.filter(d=>{ const v=treinoData[dateKey(d)];return v&&v!=='descanso';}).length;
-  const now2=new Date();const y2=now2.getFullYear();const m2=now2.getMonth();const todayD=now2.getDate();let dOk=0;for(let d2=1;d2<=todayD;d2++){const k=`${y2}-${String(m2+1).padStart(2,'0')}-${String(d2).padStart(2,'0')}`;if(dietaStatus[k]==='ok')dOk++;}
-  const dietaPct=todayD>0?Math.round((dOk/todayD)*100):0;
+  const hojeK=getTodayKey();
+  const tOn=!!(treinoData[hojeK]&&treinoData[hojeK]!=='descanso');
+  const dOn=dietaStatus[hojeK]==='ok';
+  const ultPeso=getPesoLog().slice(-1)[0];
   const mesLabel=MESES_PT[hoje.getMonth()];
   el.innerHTML=`
     <div class="inicio-greeting">Olá, Lara</div>
@@ -4085,28 +4106,11 @@ function renderInicio(){
       ${renderHabitosMes()}
     </div>
     <div class="card">
-      <div class="ctitle"><i class="ti ti-activity"></i>progressão</div>
-      <div class="habit-bar">
-        <div class="habit-label"><span>treino semanal</span><span style="color:var(--accent-text)">${doneWeek}/5 dias</span></div>
-        <div class="pb"><div class="pf" style="width:${Math.min(100,Math.round((doneWeek/5)*100))}%;background:var(--accent)"></div></div>
-      </div>
-      <div class="habit-bar">
-        <div class="habit-label"><span>dieta este mês</span><span style="color:var(--success-text)">${dOk}/${todayD} dias (${dietaPct}%)</span></div>
-        <div class="pb"><div class="pf" style="width:${dietaPct}%;background:var(--success)"></div></div>
-      </div>
-    </div>
-    <div class="card">
       <div class="ctitle"><i class="ti ti-bolt"></i>ações rápidas</div>
       <div class="quick-actions">
-        <button class="qa-btn" onclick="showMod('treino',document.querySelectorAll('.mn')[2]);showTreinoScreen('semana',document.querySelector('#nav-treino .nb'))">
-          <i class="ti ti-barbell"></i>marcar treino
-        </button>
-        <button class="qa-btn" onclick="showMod('dieta',document.querySelectorAll('.mn')[3]);showDietaScreen('tracker',document.querySelector('#nav-dieta .nb:last-child'))">
-          <i class="ti ti-salad"></i>registrar dieta
-        </button>
-        <button class="qa-btn" onclick="showMod('treino',document.querySelectorAll('.mn')[2]);showTreinoScreen('peso',document.querySelectorAll('#nav-treino .nb')[2])">
-          <i class="ti ti-scale"></i>peso
-        </button>
+        <button class="qa-btn${tOn?' on':''}" onclick="qaTreino()"><i class="ti ti-barbell"></i>${tOn?'treino feito hoje':'marcar treino'}</button>
+        <button class="qa-btn${dOn?' on':''}" onclick="qaDieta()"><i class="ti ti-salad"></i>${dOn?'dieta ok hoje':'registrar dieta'}</button>
+        <button class="qa-btn" onclick="qaPeso()"><i class="ti ti-scale"></i>peso${ultPeso?' · '+ultPeso.peso.toFixed(1).replace('.',',')+' kg':''}</button>
       </div>
     </div>
     ${renderInicioAgenda()}
@@ -4118,7 +4122,7 @@ function renderInicio(){
 }
 
 /* ===== BLOCO DE NOTAS ===== */
-const NOTAS_AREAS=[{id:'geral',nome:'Geral'},{id:'financas',nome:'Finanças'},{id:'treino',nome:'Treino'},{id:'dieta',nome:'Dieta'},{id:'casa',nome:'Casa'},{id:'leitura',nome:'Leitura'},{id:'agenda',nome:'Agenda'},{id:'faculdade',nome:'Faculdade'}];
+const NOTAS_AREAS=[{id:'geral',nome:'Geral'},{id:'financas',nome:'Finanças'},{id:'casa',nome:'Casa'},{id:'leitura',nome:'Leitura'},{id:'agenda',nome:'Agenda'},{id:'faculdade',nome:'Faculdade'}];
 let notasFiltro='todas';
 const notasAbertas={};
 function getNotas(){try{return JSON.parse(localStorage.getItem('notas')||'[]');}catch(e){return[];}}
@@ -4127,7 +4131,7 @@ function notaEsc(t){return String(t==null?'':t).replace(/&/g,'&amp;').replace(/<
 function notaNomeArea(id){const a=NOTAS_AREAS.find(x=>x.id===id);return a?a.nome:'Geral';}
 function notaOpcoes(sel){return NOTAS_AREAS.map(a=>`<option value="${a.id}"${a.id===sel?' selected':''}>${a.nome}</option>`).join('');}
 function notasLinhas(lista,mostrarArea){
-  if(!lista.length)return '<div class="nota-vazia">Nenhuma nota aqui. Escreva um lembrete acima.</div>';
+  if(!lista.length)return '<div class="nota-vazia">Nada por aqui.</div>';
   const ord=[...lista].sort((a,b)=>(a.feita?1:0)-(b.feita?1:0)||(b.criada||0)-(a.criada||0));
   return ord.map(n=>`<div class="nota-row${n.feita?' feita':''}">
     <button class="nota-chk" onclick="notaToggle('${n.id}')" title="${n.feita?'Reabrir':'Concluir'}"><i class="ti ti-${n.feita?'square-check':'square'}"></i></button>
@@ -4136,24 +4140,17 @@ function notasLinhas(lista,mostrarArea){
     <button class="nota-del" onclick="notaExcluir('${n.id}')" title="Excluir"><i class="ti ti-trash"></i></button>
   </div>`).join('');
 }
+function notaLimpaFeitas(){saveNotas(getNotas().filter(n=>!n.feita));notasAtualizar();}
 function renderNotasInicio(){
   const box=document.getElementById('notas-inicio-box');if(!box)return;
   const notas=getNotas();
-  const cont=id=>notas.filter(n=>n.area===id&&!n.feita).length;
-  const abertas=notas.filter(n=>!n.feita).length;
-  const areasComNota=NOTAS_AREAS.filter(a=>notas.some(n=>n.area===a.id));
-  if(notasFiltro!=='todas'&&!areasComNota.some(a=>a.id===notasFiltro))notasFiltro='todas';
-  const lista=notasFiltro==='todas'?notas:notas.filter(n=>n.area===notasFiltro);
+  const feitas=notas.filter(n=>n.feita).length;
   box.innerHTML=`<div class="nota-form nota-form-in">
-      <input class="nota-inp" id="nota-inp-inicio" placeholder="Anotar um lembrete ou informação" onkeydown="if(event.key==='Enter')notaAdd('inicio')">
-      <select class="nota-sel" id="nota-sel-inicio" title="Área do painel">${notaOpcoes(notasFiltro!=='todas'?notasFiltro:'geral')}</select>
+      <input class="nota-inp" id="nota-inp-inicio" placeholder="Adicionar item" onkeydown="if(event.key==='Enter')notaAdd('inicio')">
       <button class="nota-add" onclick="notaAdd('inicio')" title="Adicionar"><i class="ti ti-plus"></i></button>
     </div>
-    <div class="nota-filtros">
-      <button class="nota-fil${notasFiltro==='todas'?' on':''}" onclick="notasFiltro='todas';renderNotasInicio()">Todas ${abertas}</button>
-      ${areasComNota.map(a=>`<button class="nota-fil${notasFiltro===a.id?' on':''}" onclick="notasFiltro='${a.id}';renderNotasInicio()">${a.nome} ${cont(a.id)}</button>`).join('')}
-    </div>
-    <div class="nota-lista">${notasLinhas(lista,true)}</div>`;
+    <div class="nota-lista">${notasLinhas(notas,false)}</div>
+    ${feitas?`<button class="nota-limpa" onclick="notaLimpaFeitas()">limpar concluídas (${feitas})</button>`:''}`;
 }
 function renderNotasMod(){
   document.querySelectorAll('.notas-mod').forEach(el=>{
@@ -4618,7 +4615,7 @@ function renderInicioAgenda(){
       <div class="prox-event-info"><div class="prox-event-title">${e.titulo}</div><div class="prox-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div></div>
     </div>`;
   });
-  html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('agenda',document.querySelectorAll('.mn')[6]);showAgdScreen('proximos',document.querySelectorAll('#nav-agenda .nb')[1])"><i class="ti ti-calendar"></i>ver todos</button></div>`;
+  html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('agenda',document.querySelectorAll('.mn')[4]);showAgdScreen('proximos',document.querySelectorAll('#nav-agenda .nb')[1])"><i class="ti ti-calendar"></i>ver todos</button></div>`;
   return html;
 }
 
@@ -5232,7 +5229,7 @@ function renderInicioFaculdade(){
     html+=`<div class="sec-hdr" style="margin-top:8px">trabalhos pendentes</div>`;
     pend.forEach(t=>{const v=t.data&&t.data<hk;html+=`<div class="row"><span class="rl">${escCr(t.nome)}</span><span class="rv ${v?'r':'a'}">${t.data?cronoKeyFmt(t.data):'sem data'}</span></div>`;});
   }
-  html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('faculdade',document.querySelectorAll('.mn')[7]);showFacScreen('semana',document.querySelector('#nav-faculdade .nb'))"><i class="ti ti-school"></i>ver semana</button></div>`;
+  html+=`<button class="btn bp" style="margin-top:8px;font-size:12px" onclick="showMod('faculdade',document.querySelectorAll('.mn')[5]);showFacScreen('semana',document.querySelector('#nav-faculdade .nb'))"><i class="ti ti-school"></i>ver semana</button></div>`;
   return html;
 }
 
