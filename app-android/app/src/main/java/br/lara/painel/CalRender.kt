@@ -94,30 +94,63 @@ object CalRender {
 
         val inicio = inicioGrade(year, month)
         val hoje = key(Calendar.getInstance())
-        val numH = 22f * d
-        val laneH = 15.5f * d
-        val barH = 14f * d
-        val maisH = 10f * d
-        val maxLanes = max(1, floor((cellH - numH - maisH) / laneH).toInt())
+        val numH = 21f * d
+        val maisH = 9f * d
 
-        val barText = Paint(Paint.ANTI_ALIAS_FLAG)
-        barText.textSize = 9.5f * d
-        barText.textAlign = Paint.Align.LEFT
-        val num = Paint(Paint.ANTI_ALIAS_FLAG)
-        num.textAlign = Paint.Align.CENTER
-        num.textSize = 12f * d
-        val mais = Paint(Paint.ANTI_ALIAS_FLAG)
-        mais.textSize = 9f * d
-        mais.color = dimC
-        mais.textAlign = Paint.Align.LEFT
-
+        // 1ª passada: monta os segmentos de cada semana e descobre quantas linhas o mês precisa
+        val todasKeys = ArrayList<Array<String>>()
+        val todasSegs = ArrayList<ArrayList<Seg>>()
+        var precisa = 1
         for (wk in 0 until semanas) {
-            val y0 = headerH + wk * cellH
             val keys = Array(7) { i ->
                 val cc = inicio.clone() as Calendar
                 cc.add(Calendar.DAY_OF_MONTH, wk * 7 + i)
                 key(cc)
             }
+            val segs = ArrayList<Seg>()
+            for (it in items) {
+                if (it.fim < keys[0] || it.ini > keys[6]) continue
+                val a2 = if (it.ini <= keys[0]) 0 else keys.indexOf(it.ini)
+                val b2 = if (it.fim >= keys[6]) 6 else keys.indexOf(it.fim)
+                if (a2 < 0 || b2 < 0) continue
+                segs.add(Seg(a2, b2, it))
+            }
+            segs.sortWith(compareBy<Seg>({ it.a }, { -(it.b - it.a) }, { it.item.titulo }))
+            val ultimo = ArrayList<Int>()
+            for (s2 in segs) {
+                var lane = -1
+                for (l in ultimo.indices) if (ultimo[l] < s2.a) { lane = l; break }
+                if (lane == -1) { ultimo.add(s2.b); lane = ultimo.size - 1 } else ultimo[lane] = s2.b
+                s2.lane = lane
+            }
+            if (ultimo.size > precisa) precisa = ultimo.size
+            todasKeys.add(keys)
+            todasSegs.add(segs)
+        }
+        // altura de cada linha: encolhe (e a fonte junto) para caber o que o mês tem, até um mínimo legível
+        val livre = cellH - numH - maisH
+        val laneMax = 15.5f * d
+        val laneMin = 10.5f * d
+        val want = precisa.coerceIn(1, 5)
+        val laneH = (livre / want).coerceIn(laneMin, laneMax)
+        val barH = laneH - 1.5f * d
+        val maxLanes = max(1, floor(livre / laneH).toInt())
+
+        val barText = Paint(Paint.ANTI_ALIAS_FLAG)
+        barText.textSize = max(7f * d, barH * 0.70f)
+        barText.textAlign = Paint.Align.LEFT
+        val num = Paint(Paint.ANTI_ALIAS_FLAG)
+        num.textAlign = Paint.Align.CENTER
+        num.textSize = 12f * d
+        val mais = Paint(Paint.ANTI_ALIAS_FLAG)
+        mais.textSize = 8.5f * d
+        mais.color = dimC
+        mais.textAlign = Paint.Align.LEFT
+
+        for (wk in 0 until semanas) {
+            val y0 = headerH + wk * cellH
+            val keys = todasKeys[wk]
+            val segs = todasSegs[wk]
             // números dos dias
             for (i in 0 until 7) {
                 val cc = inicio.clone() as Calendar
@@ -127,31 +160,14 @@ object CalRender {
                 if (keys[i] == hoje) {
                     paint.color = accent
                     paint.style = Paint.Style.FILL
-                    cv.drawCircle(cx, y0 + 11f * d, 9.5f * d, paint)
+                    cv.drawCircle(cx, y0 + 10.5f * d, 9f * d, paint)
                     num.color = onAccent
                 } else {
                     num.color = if (doMes) textC else dimC
                 }
-                cv.drawText(cc.get(Calendar.DAY_OF_MONTH).toString(), cx, y0 + 15f * d, num)
+                cv.drawText(cc.get(Calendar.DAY_OF_MONTH).toString(), cx, y0 + 14.5f * d, num)
             }
 
-            // segmentos de eventos desta semana
-            val segs = ArrayList<Seg>()
-            for (it in items) {
-                if (it.fim < keys[0] || it.ini > keys[6]) continue
-                val a = if (it.ini <= keys[0]) 0 else keys.indexOf(it.ini)
-                val b = if (it.fim >= keys[6]) 6 else keys.indexOf(it.fim)
-                if (a < 0 || b < 0) continue
-                segs.add(Seg(a, b, it))
-            }
-            segs.sortWith(compareBy<Seg>({ it.a }, { -(it.b - it.a) }, { it.item.titulo }))
-            val ultimo = ArrayList<Int>()
-            for (s in segs) {
-                var lane = -1
-                for (l in ultimo.indices) if (ultimo[l] < s.a) { lane = l; break }
-                if (lane == -1) { ultimo.add(s.b); lane = ultimo.size - 1 } else ultimo[lane] = s.b
-                s.lane = lane
-            }
             val ocultos = IntArray(7)
             for (s in segs) {
                 if (s.lane >= maxLanes) {
@@ -159,18 +175,18 @@ object CalRender {
                     continue
                 }
                 val top = y0 + numH + s.lane * laneH
-                val r = RectF(s.a * cellW + 1.5f * d, top, (s.b + 1) * cellW - 1.5f * d, top + barH)
+                val r = RectF(s.a * cellW + 1f * d, top, (s.b + 1) * cellW - 1f * d, top + barH)
                 paint.style = Paint.Style.FILL
                 paint.color = s.item.cor
-                cv.drawRoundRect(r, 3f * d, 3f * d, paint)
+                cv.drawRoundRect(r, 2.5f * d, 2.5f * d, paint)
                 barText.color = corTexto(s.item.cor)
                 cv.save()
                 cv.clipRect(r)
-                cv.drawText(s.item.titulo, r.left + 3f * d, top + barH * 0.74f, barText)
+                cv.drawText(s.item.titulo, r.left + 2.5f * d, top + barH * 0.76f, barText)
                 cv.restore()
             }
             for (col in 0 until 7) {
-                if (ocultos[col] > 0) cv.drawText("+" + ocultos[col], col * cellW + 4f * d, y0 + cellH - 3f * d, mais)
+                if (ocultos[col] > 0) cv.drawText("+" + ocultos[col], col * cellW + 3f * d, y0 + cellH - 2f * d, mais)
             }
         }
         return bmp
