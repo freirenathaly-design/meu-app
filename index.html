@@ -269,6 +269,15 @@ input:focus,select:focus{border-color:var(--accent)}
 .feira-name.done-fn{text-decoration:line-through;color:var(--text3)}
 .feira-del{background:none;border:none;cursor:pointer;color:var(--danger-text);font-size:16px;padding:0 4px;flex-shrink:0;opacity:.6}
 .feira-del:hover{opacity:1}
+.feira-prog{font-size:12px;color:var(--text3);margin:-4px 0 10px}
+.feira-bar{height:6px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:6px}
+.feira-bar i{display:block;height:100%;background:var(--success);border-radius:99px;transition:width .2s}
+.feira-cat{margin:14px 2px 8px;display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text2)}
+.feira-cat small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--text3);font-size:11px}
+.feira-qtd{font-size:11.5px;color:var(--text3);margin-left:auto;padding-left:8px;text-align:right;max-width:46%}
+.feira-foot{display:flex;flex-direction:column;gap:8px;margin-top:18px}
+.feira-foot .btn{font-size:12.5px}
+
 /* LEITURA */
 .livro-card{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px}
 .lc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
@@ -1194,19 +1203,25 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       </div>
       <div id="screen-casa-feira" class="screen">
         <div class="card">
-          <div class="ctitle"><i class="ti ti-shopping-cart"></i>lista de feira</div>
+          <div class="ctitle"><i class="ti ti-shopping-cart"></i>lista de compras</div>
+          <div id="feira-prog" class="feira-prog"></div>
           <div class="fg" style="margin-bottom:0">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+              <input type="text" id="feira-input" placeholder="novo item..." style="flex:1" onkeydown="if(event.key==='Enter')addFeiraItem()">
+              <input type="text" id="feira-qty" placeholder="qtd." style="width:84px" onkeydown="if(event.key==='Enter')addFeiraItem()">
+            </div>
             <div style="display:flex;gap:8px">
-              <input type="text" id="feira-input" placeholder="adicionar item..." style="flex:1" onkeydown="if(event.key==='Enter')addFeiraItem()">
-              <button class="btn bp" style="width:auto;margin-top:0;padding:0 14px" onclick="addFeiraItem()"><i class="ti ti-plus"></i></button>
+              <select id="feira-cat" style="flex:1"></select>
+              <button class="btn bp" style="width:auto;margin-top:0;padding:0 16px" onclick="addFeiraItem()"><i class="ti ti-plus"></i> adicionar</button>
             </div>
           </div>
         </div>
         <div id="feira-lista"></div>
-        <div id="feira-comprados" style="display:none">
-          <div class="sec-hdr" style="margin-top:8px">no carrinho</div>
-          <div id="feira-comprados-lista"></div>
+        <div class="feira-foot">
+          <button class="btn bghost" onclick="feiraNovaSemana()"><i class="ti ti-refresh"></i>nova compra: desmarcar tudo</button>
+          <button class="btn bghost" onclick="feiraRestauraPlano()"><i class="ti ti-salad"></i>restaurar itens do plano</button>
         </div>
+      </div>
       </div>
     </div>
     <nav class="sub-nav sub-nav-set" id="nav-casa">
@@ -3726,20 +3741,63 @@ function showCasaScreen(id,btn){document.querySelectorAll('#mod-casa .screen').f
 /* FEIRA */
 function getFeiraItems(){try{return JSON.parse(localStorage.getItem('feiraItems')||'[]');}catch(e){return[];}}
 function saveFeiraItems(items){localStorage.setItem('feiraItems',JSON.stringify(items));}
-function addFeiraItem(){const inp=document.getElementById('feira-input');if(!inp)return;const val=inp.value.trim();if(!val)return;const items=getFeiraItems();items.unshift({id:'f'+Date.now(),nome:val,done:false});saveFeiraItems(items);inp.value='';renderFeira();}
+const FEIRA_CATS=[['proteinas','Proteínas'],['carbo','Carboidratos'],['hort','Frutas, legumes e folhas'],['lat','Laticínios e suplementos'],['merc','Mercearia'],['limpeza','Limpeza da casa'],['higiene','Higiene pessoal'],['outros','Outros']];
+const FEIRA_PLANO=[
+ ['proteinas','Peito de frango (cru)','2,7 kg'],['proteinas','Ovos','30 unidades'],
+ ['carbo','Batata-doce','3 kg'],['carbo','Pão integral','1 pacote'],['carbo','Aveia','200 g'],
+ ['hort','Legumes variados','2 kg'],['hort','Folhas','4 a 5 maços'],['hort','Frutas da semana','mamão, maçã, banana, melancia, manga'],
+ ['lat','Iogurte natural desnatado','4 a 6 potes'],['lat','Creme de ricota light','1 pote'],['lat','Whey','~250 g'],
+ ['merc','Amendoim sem sal','150 g'],['merc','Chocolate 70%','1 barra'],['merc','Azeite','repor'],
+ ['limpeza','Detergente',''],['limpeza','Sabão em pó ou líquido',''],['limpeza','Desinfetante',''],['limpeza','Água sanitária',''],
+ ['limpeza','Multiuso',''],['limpeza','Esponja de louça',''],['limpeza','Saco de lixo',''],['limpeza','Papel toalha',''],['limpeza','Papel higiênico','']
+];
+function feiraPid(n){return 'p-'+n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-');}
+function feiraPlanoItens(){return FEIRA_PLANO.map(([cat,nome,qtd])=>({id:feiraPid(nome),nome,qtd,cat,done:false}));}
+function feiraSeed(){
+  const items=getFeiraItems();
+  if(items.some(x=>x.id==='__seed1'))return;
+  feiraPlanoItens().forEach(p=>{if(!items.some(x=>x.id===p.id))items.push(p);});
+  items.push({id:'__seed1',nome:'',done:false,hidden:true});
+  saveFeiraItems(items);
+}
+function feiraRestauraPlano(){
+  const items=getFeiraItems();let n=0;
+  feiraPlanoItens().forEach(p=>{if(!items.some(x=>x.id===p.id)){items.push(p);n++;}});
+  saveFeiraItems(items);renderFeira();
+}
+function feiraNovaSemana(){
+  if(!confirm('Desmarcar todos os itens para uma nova compra?'))return;
+  const items=getFeiraItems();items.forEach(x=>{x.done=false;});saveFeiraItems(items);renderFeira();
+}
+function addFeiraItem(){
+  const inp=document.getElementById('feira-input');if(!inp)return;
+  const val=inp.value.trim();if(!val)return;
+  const qty=document.getElementById('feira-qty').value.trim();
+  const cat=document.getElementById('feira-cat').value||'outros';
+  const items=getFeiraItems();
+  items.push({id:'f'+Date.now(),nome:val,qtd:qty,cat,done:false});
+  saveFeiraItems(items);inp.value='';document.getElementById('feira-qty').value='';renderFeira();
+}
 function toggleFeiraItem(id){const items=getFeiraItems();const t=items.find(x=>x.id===id);if(t)t.done=!t.done;saveFeiraItems(items);renderFeira();}
 function deleteFeiraItem(id){const items=getFeiraItems();const idx=items.findIndex(x=>x.id===id);if(idx>=0)items.splice(idx,1);saveFeiraItems(items);renderFeira();}
-function clearFeiraDone(){const items=getFeiraItems().filter(x=>!x.done);saveFeiraItems(items);renderFeira();}
 function renderFeira(){
-  const items=getFeiraItems();
-  const pending=items.filter(x=>!x.done);const done=items.filter(x=>x.done);
-  const lista=document.getElementById('feira-lista');
-  const comprados=document.getElementById('feira-comprados');
-  const compLista=document.getElementById('feira-comprados-lista');
-  if(!lista)return;
-  lista.innerHTML=pending.length?pending.map(it=>`<div class="feira-item" onclick="toggleFeiraItem('${it.id}')"><div class="feira-check"></div><span class="feira-name">${it.nome}</span><button class="feira-del" onclick="event.stopPropagation();deleteFeiraItem('${it.id}')">×</button></div>`).join(''):'<div class="empty">lista vazia — adicione itens acima</div>';
-  if(done.length){comprados.style.display='block';compLista.innerHTML=done.map(it=>`<div class="feira-item" onclick="toggleFeiraItem('${it.id}')"><div class="feira-check done"><i class="ti ti-check" style="font-size:11px"></i></div><span class="feira-name done-fn">${it.nome}</span><button class="feira-del" onclick="event.stopPropagation();deleteFeiraItem('${it.id}')">×</button></div>`).join('')+'<button class="btn bghost" style="margin-top:4px;font-size:12px" onclick="clearFeiraDone()"><i class="ti ti-trash"></i>limpar carrinho</button'+'>';}
-  else{comprados.style.display='none';if(compLista)compLista.innerHTML='';}
+  const lista=document.getElementById('feira-lista');if(!lista)return;
+  feiraSeed();
+  const sel=document.getElementById('feira-cat');
+  if(sel&&!sel.options.length){sel.innerHTML=FEIRA_CATS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('');}
+  const items=getFeiraItems().filter(x=>!x.hidden);
+  const tot=items.length,ok=items.filter(x=>x.done).length;
+  const pg=document.getElementById('feira-prog');
+  if(pg)pg.innerHTML=tot?`${ok} de ${tot} itens no carrinho<div class="feira-bar"><i style="width:${Math.round(ok/tot*100)}%"></i></div>`:'';
+  const known=FEIRA_CATS.map(c=>c[0]);
+  const html=FEIRA_CATS.map(([k,nome])=>{
+    const its=items.filter(x=>(known.includes(x.cat)?x.cat:'outros')===k);
+    if(!its.length)return '';
+    const feitos=its.filter(x=>x.done).length;
+    its.sort((a,b)=>(a.done-b.done));
+    return `<div class="feira-cat"><span>${nome}</span><small>${feitos}/${its.length}</small></div>`+its.map(it=>`<div class="feira-item" onclick="toggleFeiraItem('${it.id}')"><div class="feira-check${it.done?' done':''}">${it.done?'<i class="ti ti-check" style="font-size:11px"></i>':''}</div><span class="feira-name${it.done?' done-fn':''}">${escCr(it.nome)}</span>${it.qtd?`<span class="feira-qtd">${escCr(it.qtd)}</span>`:''}<button class="feira-del" onclick="event.stopPropagation();deleteFeiraItem('${it.id}')">×</button></div>`).join('');
+  }).join('');
+  lista.innerHTML=html||'<div class="empty">lista vazia — adicione itens acima</div>';
 }
 
 /* LEITURA */
