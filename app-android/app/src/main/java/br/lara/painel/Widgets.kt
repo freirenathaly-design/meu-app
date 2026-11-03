@@ -75,7 +75,7 @@ object Widgets {
             if (hDp <= 0) hDp = 420
             var wPx = ((wDp - 28) * d).toInt()
             val dispDp = hDp - 8 - 10 - 44 - 14
-            var hPx = (dispDp * 0.58 * d).toInt()
+            var hPx = (dispDp * 0.64 * d).toInt()
             while (wPx.toLong() * hPx * 4 > 3_000_000L) { wPx = wPx * 9 / 10; hPx = hPx * 9 / 10 }
             val bmp = CalRender.render(c, wPx, hPx, ano, mes, itens, dark)
 
@@ -85,7 +85,7 @@ object Widgets {
             // lista dos compromissos de hoje, abaixo do calendário
             val hojeCal = Calendar.getInstance()
             val evs = Data.eventosDoDia(c, CalRender.key(hojeCal))
-            val cabe = Math.max(1, Math.min(5, ((dispDp * 0.42 - 22) / 20).toInt()))
+            val cabe = Math.max(2, Math.min(5, ((dispDp * 0.18 - 21) / 18).toInt()))
             rv.setTextViewText(R.id.ahoje, "HOJE · %02d/%02d".format(hojeCal.get(Calendar.DAY_OF_MONTH), hojeCal.get(Calendar.MONTH) + 1))
             val mostrar = if (evs.size > cabe) cabe - 1 else evs.size
             for (i in 0 until 5) {
@@ -101,6 +101,22 @@ object Widgets {
                 } else rv.setViewVisibility(row, View.GONE)
             }
             rv.setViewVisibility(R.id.avazio, if (evs.isEmpty()) View.VISIBLE else View.GONE)
+            // bloco de notas, na parte de baixo
+            val cabeN = Math.max(2, Math.min(4, ((dispDp * 0.18 - 21) / 15).toInt()))
+            val pend = Data.notas(c, 30)
+            rv.setTextViewText(R.id.anh, if (pend.isEmpty()) "NOTAS" else "NOTAS · " + pend.size)
+            val mostrarN = if (pend.size > cabeN) cabeN - 1 else pend.size
+            for (i in 0 until 4) {
+                val rid = id(c, "an$i")
+                if (i < mostrarN) {
+                    rv.setViewVisibility(rid, View.VISIBLE)
+                    rv.setTextViewText(rid, "\u2610 " + pend[i].texto.replace('\n', ' '))
+                } else if (i == mostrarN && pend.size > cabeN) {
+                    rv.setViewVisibility(rid, View.VISIBLE)
+                    rv.setTextViewText(rid, "+" + (pend.size - mostrarN) + " mais")
+                } else rv.setViewVisibility(rid, View.GONE)
+            }
+            rv.setViewVisibility(R.id.anvazio, if (pend.isEmpty()) View.VISIBLE else View.GONE)
             rv.setTextViewText(R.id.afoot, if (!Data.hasToken(c)) "Abra o app uma vez para ativar o widget." else rodape(c, erro))
             rv.setOnClickPendingIntent(R.id.aroot, abrirApp(c, 1))
             rv.setOnClickPendingIntent(R.id.acal, abrirApp(c, 1))
