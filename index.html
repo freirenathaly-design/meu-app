@@ -362,6 +362,14 @@ input:focus,select:focus{border-color:var(--accent)}
 .agd-cat-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:99px;border:1.5px solid transparent;cursor:pointer;font-size:12px;font-weight:500;transition:all .15s}
 .agd-cat-chip.sel{border-color:var(--text)!important;transform:scale(1.04)}
 .agd-cat-chip .cc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.agd-sw-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.agd-sw{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(43,45,66,.12)}
+.agd-sw.sel{border-color:var(--text);box-shadow:0 0 0 2px var(--surface) inset}
+.agd-sw-custom{position:relative;overflow:hidden;background:conic-gradient(#e76f51,#e9a23b,#6a994e,#2a9d8f,#4c8dcb,#7b6cb5,#c8577a,#e76f51)}
+.agd-sw-custom input{position:absolute;inset:-6px;opacity:0;cursor:pointer;width:44px;height:44px}
+.agd-chip-new{border:1.5px dashed var(--border2);color:var(--text2);background:none}
+.agd-newcat{display:none;gap:8px;margin-top:8px;align-items:center}
+.agd-newcat.on{display:flex}
 .agd-cat-legend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);padding:3px 0;cursor:pointer}
 .agd-cat-legend .cc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
 .cats-manage{background:var(--surface);border:.5px solid var(--border);border-radius:12px;padding:12px;margin-top:8px}
@@ -1421,8 +1429,15 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <div class="fg"><label class="fl">local / obs (opcional)</label><input type="text" id="agd-obs" placeholder="ex: Policlínica, sala 3..."></div>
       <div class="fg"><label class="fl">categoria</label>
         <div class="agd-cats-row" id="agd-cat-chips"></div>
+        <div class="agd-newcat" id="agd-newcat">
+          <input type="text" id="agd-newcat-nome" placeholder="nome da nova categoria" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();agdCriaCat()}">
+          <button class="btn bp" style="width:auto;margin-top:0;padding:8px 14px" onclick="agdCriaCat()"><i class="ti ti-check"></i></button>
+        </div>
       </div>
-      <div class="fg"><label class="fl">repetir</label>
+      <div class="fg"><label class="fl">cor do evento</label>
+        <div class="agd-sw-row" id="agd-sw"></div>
+      </div>
+      <div class="fg" id="agd-rep-fg"><label class="fl">repetir</label>
         <select id="agd-rep" onchange="agdRepMudou()">
           <option value="">Não repete</option>
           <option value="1d">Todos os dias</option>
@@ -4394,6 +4409,7 @@ function agdRepPrev(){
   const f=k=>k.slice(8,10)+'/'+k.slice(5,7)+'/'+k.slice(0,4);
   el.textContent=l.length>1?`Serão criados ${l.length} eventos, de ${f(l[0])} até ${f(l[l.length-1])}.`:'Defina o término para criar as repetições.';
 }
+function agdEditar(id){const e=getEventos().find(x=>x.id===id);if(e)openAgdModal(e.data,e,id);}
 function agdDuplicar(id){const e=getEventos().find(x=>x.id===id);if(e)openAgdModal(e.data,e);}
 function agdFimDe(e){return (e.fim&&e.fim>e.data)?e.fim:e.data;}
 function agdOcorre(e,key){return e.data<=key&&key<=agdFimDe(e);}
@@ -4409,7 +4425,25 @@ function saveEventos(e){localStorage.setItem('agdEventos',JSON.stringify(e));}
 let agdMesAtual=new Date().getMonth();
 let agdAnoAtual=new Date().getFullYear();
 let agdDiaSel=null;
-let agdSelectedColor='#7b6cb5';
+let agdSelectedColor='#7b6cb5',agdCorCustom=false;
+const AGD_CORES=['#7b6cb5','#2a9d8f','#6a994e','#e9a23b','#e76f51','#c8577a','#4c8dcb','#a07bc0','#e6a57e','#6b7080'];
+function renderAgdSw(){
+  const el=document.getElementById('agd-sw');if(!el)return;
+  const c=String(agdSelectedColor||'').toLowerCase();
+  const emLista=AGD_CORES.includes(c);
+  el.innerHTML=AGD_CORES.map(x=>`<button type="button" class="agd-sw${x===c?' sel':''}" style="background:${x}" onclick="agdPickCor('${x}')"></button>`).join('')
+    +`<label class="agd-sw agd-sw-custom${!emLista&&c?' sel':''}" title="outra cor"><input type="color" value="${/^#[0-9a-f]{6}$/.test(c)?c:'#7b6cb5'}" onchange="agdPickCor(this.value)"></label>`;
+}
+function agdPickCor(c){agdSelectedColor=c;agdCorCustom=true;renderAgdSw();}
+function agdNovaCatToggle(){const b=document.getElementById('agd-newcat');b.classList.toggle('on');if(b.classList.contains('on'))document.getElementById('agd-newcat-nome').focus();}
+function agdCriaCat(){
+  const inp=document.getElementById('agd-newcat-nome');const nome=inp.value.trim();if(!nome)return;
+  const cats=getCats();const id='cat'+Date.now();
+  cats.push({id,nome,cor:agdSelectedColor||'#7b6cb5'});saveCats(cats);
+  agdSelectedCatId=id;agdCorCustom=false;inp.value='';
+  document.getElementById('agd-newcat').classList.remove('on');
+  renderCatChips();renderAgdSw();
+}
 
 const DIAS_SEMANA_AGD=['D','S','T','Q','Q','S','S'];
 const MESES_FULL=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -4435,7 +4469,7 @@ function agdCatDe(e){
   if(!c&&e.catNome)c={nome:e.catNome,cor:e.cor||'#7b6cb5'};
   if(!c&&e.cor)c=cats.find(x=>String(x.cor).toLowerCase()===String(e.cor).toLowerCase());
   if(!c)c={nome:'Sem categoria',cor:e.cor||'#6b6985'};
-  return {nome:c.nome,cor:c.cor,chave:c.nome+'|'+c.cor};
+  const cor=(e.corCustom&&e.cor)?e.cor:c.cor;return {nome:c.nome,cor,chave:c.nome+'|'+cor};
 }
 function agdFiltrar(lista){return agdFiltroChave?lista.filter(e=>agdCatDe(e).chave===agdFiltroChave):lista;}
 function agdSetFiltroIdx(i){const k=agdLegChaves[i];agdFiltroChave=(agdFiltroChave===k)?null:k;renderAgdCal();}
@@ -4536,7 +4570,7 @@ function renderAgdSemana(){
     const evs=agdFiltrar(semana.filter(e=>agdOcorre(e,key))).sort((x,y)=>(x.hora||'99:99').localeCompare(y.hora||'99:99'));
     const corpo=evs.length?evs.map(e=>{
       const c=agdCatDe(e);
-      return `<div class="agd-sem-ev" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.16)}"><button class="x" title="Excluir" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>${e.todo?`<button class="x" title="Concluir to-do" style="color:var(--success-text)" onclick="agdConcluiTodo('${e.id}')"><i class="ti ti-check"></i></button>`:`<button class="x" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button>`}<div class="t">${escAgd(e.titulo)}</div><div class="h">${e.hora?escAgd(e.hora):'Dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+escAgd(e.obs):''}</div><span class="c">${escAgd(c.nome)}</span></div>`;
+      return `<div class="agd-sem-ev" style="--c:${c.cor};background:${hexWithAlpha(c.cor,0.16)}"><button class="x" title="Excluir" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>${e.todo?`<button class="x" title="Concluir to-do" style="color:var(--success-text)" onclick="agdConcluiTodo('${e.id}')"><i class="ti ti-check"></i></button>`:`<button class="x" title="Editar" style="color:var(--text2)" onclick="agdEditar('${e.id}')"><i class="ti ti-pencil"></i></button><button class="x" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button>`}<div class="t">${escAgd(e.titulo)}</div><div class="h">${e.hora?escAgd(e.hora):'Dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+escAgd(e.obs):''}</div><span class="c">${escAgd(c.nome)}</span></div>`;
     }).join(''):'<div class="agd-sem-vazio">Sem eventos</div>';
     return `<div class="agd-sem-col${key===hojeKey?' agd-hoje':''}"><div class="agd-sem-hd" onclick="openAgdModal('${key}')" title="Adicionar evento"><span>${DIAS_NOME[d.getDay()]} ${d.getDate()}</span><small><i class="ti ti-plus"></i></small></div>${corpo}</div>`;
   }).join('');
@@ -4567,7 +4601,7 @@ function renderAgdDiaPanel(key){
           <div class="agd-event-title" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${e.titulo}${catLabel}</div>
           <div class="agd-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div>
         </div>
-        ${e.todo?`<button class="agd-event-del" title="Concluir to-do" style="color:var(--success-text)" onclick="agdConcluiTodo('${e.id}')"><i class="ti ti-check"></i></button>`:`<button class="agd-event-del" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button>`}<button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
+        ${e.todo?`<button class="agd-event-del" title="Concluir to-do" style="color:var(--success-text)" onclick="agdConcluiTodo('${e.id}')"><i class="ti ti-check"></i></button>`:`<button class="agd-event-del" title="Editar" style="color:var(--text2)" onclick="agdEditar('${e.id}')"><i class="ti ti-pencil"></i></button><button class="agd-event-del" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button>`}<button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
       </div>`;
     });
   }
@@ -4608,7 +4642,7 @@ function renderAgdProximos(){
         <div class="agd-event-title" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">${e.titulo}${catLabel}</div>
         <div class="agd-event-time">${e.hora||'dia inteiro'}${agdFmtPeriodo(e)?' · '+agdFmtPeriodo(e):''}${e.obs?' · '+e.obs:''}</div>
       </div>
-      ${e.todo?`<button class="agd-event-del" title="Concluir to-do" style="color:var(--success-text)" onclick="agdConcluiTodo('${e.id}')"><i class="ti ti-check"></i></button>`:`<button class="agd-event-del" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button>`}<button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
+      ${e.todo?`<button class="agd-event-del" title="Concluir to-do" style="color:var(--success-text)" onclick="agdConcluiTodo('${e.id}')"><i class="ti ti-check"></i></button>`:`<button class="agd-event-del" title="Editar" style="color:var(--text2)" onclick="agdEditar('${e.id}')"><i class="ti ti-pencil"></i></button><button class="agd-event-del" title="Duplicar" style="color:var(--text2)" onclick="agdDuplicar('${e.id}')"><i class="ti ti-copy"></i></button>`}<button class="agd-event-del" onclick="deleteAgdEvento('${e.id}')"><i class="ti ti-trash"></i></button>
     </div>`;
   }).join('');
 }
@@ -4634,11 +4668,12 @@ function renderCatChips(){
     return`<div class="agd-cat-chip${sel?' sel':''}" data-catid="${c.id}" style="background:${bg};border-color:${sel?c.cor:'var(--border2)'};color:${c.cor}" onclick="selectAgdCat('${c.id}')">
       <div class="cc-dot" style="background:${c.cor}"></div>${c.nome}
     </div>`;
-  }).join('');
+  }).join('')+`<div class="agd-cat-chip agd-chip-new" onclick="agdNovaCatToggle()"><i class="ti ti-plus" style="font-size:12px"></i>nova</div>`;
 }
 function selectAgdCat(id){
   agdSelectedCatId=agdSelectedCatId===id?null:id;
-  renderCatChips();
+  if(agdSelectedCatId){const c=getCats().find(x=>x.id===id);if(c){agdSelectedColor=c.cor;agdCorCustom=false;}}
+  renderCatChips();renderAgdSw();
 }
 function hexWithAlpha(hex,alpha){
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
@@ -4688,22 +4723,26 @@ function deleteCategoria(id){
   renderCatChips();
 }
 
-function openAgdModal(diaKey,base){
+function openAgdModal(diaKey,base,editId){
   document.getElementById('agd-titulo').value=base?base.titulo:'';
   document.getElementById('agd-data').value=diaKey||dateKey(new Date());
   document.getElementById('agd-hora').value=base?(base.hora||''):'';
   document.getElementById('agd-fim').value=base&&base.fim?base.fim:'';
   document.getElementById('agd-obs').value=base?(base.obs||''):'';
   document.getElementById('agd-lem').value=String(base&&base.lem!=null?base.lem:-1);
-  document.getElementById('agd-edit-id').value='';
-  document.getElementById('agd-modal-title').textContent=base?'Duplicar evento':'Novo Evento';
+  document.getElementById('agd-edit-id').value=editId||'';
+  document.getElementById('agd-modal-title').textContent=editId?'Editar evento':(base?'Duplicar evento':'Novo Evento');
+  document.getElementById('agd-rep-fg').style.display=editId?'none':'';
+  document.getElementById('agd-rep-box').style.display='none';
+  document.getElementById('agd-newcat').classList.remove('on');
   document.getElementById('agd-rep').value='';
   document.getElementById('agd-rep-fim-tipo').value='n';
   document.getElementById('agd-rep-fim-n').value=4;document.getElementById('agd-rep-fim-d').value='';
   document.getElementById('agd-rep-n').value=1;document.getElementById('agd-rep-un').value='w';
   agdRepMudou();
   agdSelectedCatId=base?(base.catId||null):null;
-  renderCatChips();
+  agdSelectedColor=(base&&base.cor)?base.cor:'#7b6cb5';agdCorCustom=!!(base&&base.corCustom);
+  renderCatChips();renderAgdSw();
   document.getElementById('modal-agenda').style.display='flex';
 }
 function closeAgdModal(){document.getElementById('modal-agenda').style.display='none';}
@@ -4717,18 +4756,22 @@ function saveAgdEvento(){
   const lem=parseInt(document.getElementById('agd-lem').value);
   const cats=getCats();
   const cat=cats.find(c=>c.id===agdSelectedCatId);
-  const cor=cat?cat.cor:'#7b6cb5';
+  const cor=agdSelectedColor||(cat?cat.cor:'#7b6cb5');
+  const corCustom=!!(cat&&String(cat.cor).toLowerCase()!==String(cor).toLowerCase());
   const catId=agdSelectedCatId||null;
   const catNome=cat?cat.nome:null;
   const eventos=getEventos();
-  const datas=agdGeraDatas(data);
+  const editId=document.getElementById('agd-edit-id').value;
+  const datas=editId?[data]:agdGeraDatas(data);
   const span=fim?Math.round((new Date(fim+'T12:00')-new Date(data+'T12:00'))/864e5):0;
   const serie=datas.length>1?'s'+Date.now():null;
   const t0=Date.now();
   datas.forEach((k,i)=>{
     const ev={id:'e'+t0+(i?'_'+i:''),titulo,data:k,fim:span?addDays(k,span):'',hora,obs,cor,catId,catNome};
+    if(corCustom)ev.corCustom=true;
     if(lem>=0)ev.lem=lem;
     if(serie)ev.serie=serie;
+    if(editId){const ix=eventos.findIndex(x=>x.id===editId);if(ix>=0){ev.id=editId;if(eventos[ix].serie)ev.serie=eventos[ix].serie;eventos[ix]=ev;return;}}
     eventos.push(ev);
   });
   saveEventos(eventos);
