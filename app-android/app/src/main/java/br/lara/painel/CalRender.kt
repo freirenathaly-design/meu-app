@@ -71,7 +71,6 @@ object CalRender {
         val semanas = semanas(year, month)
         val headerH = 20f * d
         val cellW = w / 7f
-        val cellH = (h - headerH) / semanas
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val tp = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -83,24 +82,15 @@ object CalRender {
         val letras = arrayOf("D", "S", "T", "Q", "Q", "S", "S")
         for (i in 0 until 7) cv.drawText(letras[i], i * cellW + cellW / 2f, headerH * 0.75f, tp)
 
-        // linhas da grade
-        paint.color = lineC
-        paint.strokeWidth = 1f
-        for (r in 0..semanas) {
-            val y = headerH + r * cellH
-            cv.drawLine(0f, y, w.toFloat(), y, paint)
-        }
-        for (i in 1 until 7) cv.drawLine(i * cellW, headerH, i * cellW, h.toFloat(), paint)
-
         val inicio = inicioGrade(year, month)
         val hoje = key(Calendar.getInstance())
         val numH = 21f * d
         val maisH = 9f * d
 
-        // 1ª passada: monta os segmentos de cada semana e descobre quantas linhas o mês precisa
+        // 1ª passada: segmentos de cada semana e quantas linhas cada uma precisa
         val todasKeys = ArrayList<Array<String>>()
         val todasSegs = ArrayList<ArrayList<Seg>>()
-        var precisa = 1
+        val linhasSem = IntArray(semanas)
         for (wk in 0 until semanas) {
             val keys = Array(7) { i ->
                 val cc = inicio.clone() as Calendar
@@ -123,19 +113,33 @@ object CalRender {
                 if (lane == -1) { ultimo.add(s2.b); lane = ultimo.size - 1 } else ultimo[lane] = s2.b
                 s2.lane = lane
             }
-            if (ultimo.size > precisa) precisa = ultimo.size
+            linhasSem[wk] = ultimo.size.coerceIn(1, 6)
             todasKeys.add(keys)
             todasSegs.add(segs)
         }
-        // altura de cada linha: encolhe (e a fonte junto) para caber o que o mês tem, até um mínimo legível
-        val livre = cellH - numH - maisH
+
+        // altura de cada semana proporcional ao que ela tem; semanas vazias ficam baixas
+        val fixo = numH + maisH
+        val disp = h - headerH
         val laneMax = 15.5f * d
         val laneMin = 10.5f * d
-        val want = precisa.coerceIn(1, 5)
-        val laneH = (livre / want).coerceIn(laneMin, laneMax)
-        val barH = laneH - 1.5f * d
-        val maxLanes = max(1, floor(livre / laneH).toInt())
+        val laneH = ((disp - semanas * fixo) / linhasSem.sum()).coerceIn(laneMin, laneMax)
+        val precisa = FloatArray(semanas) { fixo + linhasSem[it] * laneH }
+        val somaPrec = precisa.sum()
+        val altSem = FloatArray(semanas) {
+            if (somaPrec >= disp) precisa[it] * disp / somaPrec else precisa[it] + (disp - somaPrec) / semanas
+        }
+        val ys = FloatArray(semanas + 1)
+        ys[0] = headerH
+        for (i in 0 until semanas) ys[i + 1] = ys[i] + altSem[i]
 
+        // linhas da grade
+        paint.color = lineC
+        paint.strokeWidth = 1f
+        for (r in 0..semanas) cv.drawLine(0f, ys[r], w.toFloat(), ys[r], paint)
+        for (i in 1 until 7) cv.drawLine(i * cellW, headerH, i * cellW, h.toFloat(), paint)
+
+        val barH = laneH - 1.5f * d
         val barText = Paint(Paint.ANTI_ALIAS_FLAG)
         barText.textSize = max(7f * d, barH * 0.70f)
         barText.textAlign = Paint.Align.LEFT
@@ -148,7 +152,9 @@ object CalRender {
         mais.textAlign = Paint.Align.LEFT
 
         for (wk in 0 until semanas) {
-            val y0 = headerH + wk * cellH
+            val y0 = ys[wk]
+            val cellH = altSem[wk]
+            val maxLanes = max(1, floor((cellH - fixo) / laneH).toInt())
             val keys = todasKeys[wk]
             val segs = todasSegs[wk]
             // números dos dias
