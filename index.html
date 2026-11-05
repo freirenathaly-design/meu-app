@@ -1368,10 +1368,21 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
       <div class="fg"><label class="fl">item</label><input type="text" id="orc-m-nome" placeholder="ex: Academia"></div>
       <div class="fg"><label class="fl">valor planejado (R$)</label><input type="number" id="orc-m-plan" step="0.01" inputmode="decimal" placeholder="0,00"></div>
       <div class="fg" id="orc-m-efw"><label class="fl">valor efetivado / gasto (R$)</label><input type="number" id="orc-m-efet" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+      <label id="orc-m-qw" style="display:none;align-items:flex-start;gap:8px;font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.4"><input type="checkbox" id="orc-m-quit" style="margin-top:3px"><span>Contar como pago (quitado), mesmo com valor abaixo do planejado</span></label>
       <div id="orc-m-info" style="font-size:11px;color:var(--text3);margin-bottom:8px"></div>
       <button class="btn bp" onclick="orcSalvaItem()"><i class="ti ti-check"></i>salvar</button>
       <button class="btn" id="orc-m-rest" style="display:none;margin-top:6px" onclick="orcRestaura()">voltar ao valor da planilha</button>
       <button class="btn" id="orc-m-del" style="display:none;margin-top:6px;color:var(--danger-text)" onclick="orcExcluiExtra()"><i class="ti ti-trash"></i>excluir este item</button>
+    </div>
+  </div>
+  <div id="modal-quit" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:120;align-items:flex-end;justify-content:center">
+    <div style="background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:430px">
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px" id="quit-t">Como contar este valor?</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.5" id="quit-d"></div>
+      <button class="btn bp" onclick="quitEscolhe(true)"><i class="ti ti-check"></i>Pago (item quitado)</button>
+      <div style="font-size:11px;color:var(--text3);margin:4px 0 10px">O item some de "a pagar", mesmo com valor menor que o planejado.</div>
+      <button class="btn" onclick="quitEscolhe(false)"><i class="ti ti-hourglass"></i>Saldo restante (parcial)</button>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">O item continua em "a pagar" com o que falta. Os próximos lançamentos vão somando.</div>
     </div>
   </div>
   <div id="modal-pj" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:flex-end;justify-content:center" onclick="if(event.target===this)pjFecha()">
@@ -2190,12 +2201,12 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(pjRender,60));
 /* ===== ORÇAMENTO EDITÁVEL ===== */
 function getOrc(){try{return JSON.parse(localStorage.getItem('orcamento')||'{}')||{};}catch(e){return{};}}
 function saveOrc(o){localStorage.setItem('orcamento',JSON.stringify(o));}
-function orcMes(o,m){o.meses=o.meses||{};if(!o.meses[m]){const c=MONTHS[m]||{};o.meses[m]={sal:c.entrada||0,ext:c.rendaExtra||0,res:0,ov:{},ex:[]};}const x=o.meses[m];x.ov=x.ov||{};x.ex=x.ex||[];return x;}
+function orcMes(o,m){o.meses=o.meses||{};if(!o.meses[m]){const c=MONTHS[m]||{};o.meses[m]={sal:c.entrada||0,ext:c.rendaExtra||0,res:0,ov:{},ex:[]};}const x=o.meses[m];x.ov=x.ov||{};x.ex=x.ex||[];x.quit=x.quit||{};return x;}
 let orcItens=[],orcEd=null;
 function orcAplica(cats){
   const o=getOrc(),mm=orcMes(o,currentMonth);orcItens=[];
   Object.keys(cats).forEach(c=>{cats[c].items.forEach((it,n)=>{
-    it.k=c+'|'+it.item+'|'+n;it.planSheet=it.plan;
+    it.k=c+'|'+it.item+'|'+n;it.planSheet=it.plan;it.quit=!!mm.quit[it.k];
     if(mm.ov[it.k]!=null){cats[c].plan+=mm.ov[it.k]-it.plan;it.plan=mm.ov[it.k];it.ed=true;}
     it.i=orcItens.push(it)-1;
   });});
@@ -2238,6 +2249,7 @@ function orcNovo(cat){
   document.getElementById('orc-m-catw').style.display='block';
   document.getElementById('orc-m-nome').value='';document.getElementById('orc-m-nome').readOnly=false;
   document.getElementById('orc-m-plan').value='';document.getElementById('orc-m-efw').style.display='none';
+  {const qw=document.getElementById('orc-m-qw');if(qw)qw.style.display='none';}
   document.getElementById('orc-m-info').textContent='Entra no total planejado de '+MONTHS[currentMonth].label+'.';
   document.getElementById('orc-m-rest').style.display='none';document.getElementById('orc-m-del').style.display='none';if(cat)document.getElementById('orc-m-cat').value=cat;orcAbre();
 }
@@ -2248,6 +2260,7 @@ function orcEditar(i){
   const n=document.getElementById('orc-m-nome');n.value=it.item;n.readOnly=!it.extra;
   document.getElementById('orc-m-plan').value=it.plan;
   document.getElementById('orc-m-efw').style.display=it.extra?'none':'block';document.getElementById('orc-m-efet').value=it.efet>0?it.efet:'';
+  {const qw=document.getElementById('orc-m-qw');const par=!it.extra&&it.efet>0&&it.efet<it.plan-0.005;qw.style.display=par?'flex':'none';document.getElementById('orc-m-quit').checked=!!it.quit;}
   document.getElementById('orc-m-info').textContent=it.extra?'Item criado no app.':'Planejado e efetivado são gravados na planilha ao salvar. Na planilha: planejado '+brl(it.planSheet)+', efetivado '+brl(it.efet)+'.';
   document.getElementById('orc-m-rest').style.display=it.ed?'block':'none';
   document.getElementById('orc-m-del').style.display=it.extra?'block':'none';orcAbre();
@@ -2270,11 +2283,29 @@ function orcSalvaItem(){
   const efNovo=(it0&&!it0.extra&&efRaw!=='')?orcNum(efRaw):((it0&&!it0.extra&&it0.efet>0)?0:null);
   const efMudou=efNovo!=null&&Math.abs(efNovo-(it0.efet||0))>0.004;
   const plMudou=it0&&!it0.extra&&Math.abs(v-it0.plan)>0.004;
+  if(it0&&!it0.extra&&!efMudou&&document.getElementById('orc-m-qw').style.display!=='none')quitGrava(it0,document.getElementById('orc-m-quit').checked);
   orcFecha();
   if(novoX){orcEnviaNovo(novoX);}
-  else if(it0&&!it0.extra){(async()=>{if(plMudou)await orcGravaPlanilha(it0,v);if(efMudou)await orcGravaEfet(it0,efNovo);if(!plMudou&&!efMudou)orcRefaz();})();}
+  else if(it0&&!it0.extra){(async()=>{if(efMudou){if(efNovo>0&&efNovo<v-0.005){quitGrava(it0,await quitPergunta(it0,efNovo));}else quitGrava(it0,false);}if(plMudou)await orcGravaPlanilha(it0,v);if(efMudou)await orcGravaEfet(it0,efNovo);if(!plMudou&&!efMudou)orcRefaz();})();}
   else orcRefaz();
 }
+let quitRes=null;
+function quitPergunta(it,total){
+  return new Promise(res=>{
+    quitRes=res;
+    document.getElementById('quit-t').textContent=it.item+': como contar este valor?';
+    document.getElementById('quit-d').textContent='Efetivado '+brl(total)+' de '+brl(it.plan)+' planejados. Faltam '+brl(it.plan-total)+'. O item já está pago ou ainda vai receber mais pagamentos?';
+    document.getElementById('modal-quit').style.display='flex';
+  });
+}
+function quitEscolhe(pago){document.getElementById('modal-quit').style.display='none';if(quitRes){const r=quitRes;quitRes=null;r(pago);}}
+function mesParciais(){return orcItens.filter(it=>!it.extra&&it.efet>0&&!mesPago(it));}
+function mesQuitaParciais(){
+  const l=mesParciais();if(!l.length)return;
+  if(!confirm('Marcar como pagos os '+l.length+' itens parciais de '+(MONTHS[currentMonth]||{label:''}).label+'? Eles saem de "a pagar" e o que faltava deixa de contar.'))return;
+  l.forEach(it=>quitGrava(it,true));renderMes();
+}
+function quitGrava(it,flag){const o=getOrc(),mm=orcMes(o,currentMonth);if(flag)mm.quit[it.k]=true;else delete mm.quit[it.k];saveOrc(o);it.quit=!!flag;}
 let orcUltimaMsg='';
 function orcMsg(t){orcUltimaMsg=t;const ok=t.indexOf('✅')===0;['orc-status'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.display='block';e.textContent=t;e.style.background=ok?'var(--success-bg)':'var(--warning-bg)';e.style.color=ok?'var(--success-text)':'var(--warning-text)';}});renderOrc();}
 function nrm(x){return String(x||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]/g,'');}
@@ -2448,7 +2479,8 @@ let mesTab='todos',recEd=null;
 function mesSetTab(t){mesTab=t;renderMes();}
 function mesLabelAtualiza(){const e=document.getElementById('f-month-label');if(e)e.textContent=(MONTHS[currentMonth]||{label:''}).label;const sel=document.getElementById('month-select');if(sel&&sel.value!==currentMonth)sel.value=currentMonth;}
 function mesNav(d){const i=MES_ORDEM.indexOf(currentMonth)+d;if(i<0||i>=MES_ORDEM.length)return;document.getElementById('month-select').value=MES_ORDEM[i];onMonthChange();}
-function mesPago(it){return it.efet>0&&it.efet>=it.plan-0.005;}
+function mesPago(it){return it.efet>0&&(it.efet>=it.plan-0.005||!!it.quit);}
+function mesRest(it){return mesPago(it)?0:Math.max(0,it.plan-it.efet);}
 function mesItemHtml(it){
   const pago=mesPago(it),parcial=it.efet>0&&!pago;
   let chip='';
@@ -2458,8 +2490,9 @@ function mesItemHtml(it){
   const sub=[];
   if(it.venc)sub.push('venc. '+escCr(it.venc));
   sub.push('planejado '+brl(it.plan)+(it.ed?' ✎':''));
+  if(it.quit&&it.efet>0&&it.efet<it.plan-0.005)sub.push('quitado com '+brl(it.plan-it.efet)+' a menos');
   let v,cls;
-  if(mesTab==='pagar'){v=brl(Math.max(0,it.plan-it.efet));cls='mute';}
+  if(mesTab==='pagar'){v=brl(mesRest(it));cls='mute';}
   else if(it.efet>0){v='− '+brl(it.efet);cls='out';}
   else{v=brl(it.plan);cls='mute';}
   return `<div class="f-it" onclick="orcEditar(${it.i})"><div style="min-width:0"><div class="f-it-t">${escCr(it.item)}</div><div class="f-it-s">${sub.join(' · ')}${it.descricao?'<br>'+escCr(it.descricao):''}</div>${chip?`<div class="f-chips">${chip}</div>`:''}</div><div class="f-it-v ${cls}">${v}</div></div>`;
@@ -2478,7 +2511,7 @@ function renderMes(){
       <div class="f-sc dark"><div class="f-sc-l">Saldo atual da conta</div><div class="f-sc-v${cats&&saldoAt<0?' neg':''}">${val(saldoAt)}</div></div>
       <div class="f-sc"><div class="f-sc-l">Saldo final planejado</div><div class="f-sc-v${cats&&proj<0?' neg':''}">${val(proj)}</div></div>
     </div>
-    <div class="f-tabs">${[['todos','Todos'],['pagar','A pagar'],['pagos','Pagos']].map(([k,l])=>`<button class="${mesTab===k?'on':''}" onclick="mesSetTab('${k}')">${l}</button>`).join('')}</div>`;
+    <div class="f-tabs">${[['todos','Todos'],['pagar','A pagar'],['pagos','Pagos']].map(([k,l])=>`<button class="${mesTab===k?'on':''}" onclick="mesSetTab('${k}')">${l}</button>`).join('')}</div>${cats&&mesParciais().length?`<button class="orc-ed" style="margin:8px 0 0" onclick="mesQuitaParciais()">marcar ${mesParciais().length} parcial(is) como pago(s)</button>`:''}`;
   if(!cats){panel.innerHTML='<div class="f-panel"><div class="empty">toque em sincronizar para carregar o mês</div></div>';bal.innerHTML='';conEl.innerHTML='';return;}
   // entradas
   let h='';
@@ -2496,7 +2529,7 @@ function renderMes(){
   const blocos=Object.entries(cats).map(([k,d])=>{
     const itens=d.items.filter(f);
     if(mesTab!=='todos'&&!itens.length)return '';
-    const rest=itens.reduce((a,it)=>a+Math.max(0,it.plan-it.efet),0),pg=itens.reduce((a,it)=>a+it.efet,0);
+    const rest=itens.reduce((a,it)=>a+mesRest(it),0),pg=itens.reduce((a,it)=>a+it.efet,0);
     tPl+=d.plan;tGa+=d.efet;tRest+=rest;tPg+=pg;
     const ab=mesAberto[k]!==undefined?mesAberto[k]:(mesTab!=='todos');
     const nm=k.charAt(0)+k.slice(1).toLowerCase();
@@ -2591,7 +2624,7 @@ function renderSheetLancs(cats){
     <div class="row" style="border-top:1px solid var(--border2);padding-top:8px"><span class="rl" style="font-weight:600">${dif>=0?'ainda a gastar do planejado':'acima do planejado'}</span><span class="rv ${dif>=0?'g':'r'}" style="font-weight:600">${brl(dif)}</span></div>`;
 }
 async function loadSubcats(){const cat=document.getElementById('cat').value;const wrap=document.getElementById('subcat-wrap');const sel=document.getElementById('subcat');if(!cat){wrap.style.display='none';return;}wrap.style.display='block';sel.innerHTML='<option>carregando...</option>';try{const params=new URLSearchParams({action:'getSubcats',categoria:cat,aba:currentMonth});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success&&d.subcats&&d.subcats.length){sel.innerHTML=d.subcats.map(s=>`<option value="${s}">${s}</option>`).join('');}else{sel.innerHTML='<option value="">— nenhuma subcategoria —</option>';}}catch(e){sel.innerHTML='<option value="">— erro ao carregar —</option>';}}
-async function addLanc(){if(document.getElementById('rep').value)return repLanc();const valor=parseFloat(document.getElementById('valor').value);const cat=document.getElementById('cat').value;const subcat=document.getElementById('subcat').value;const status=document.getElementById('status').value;const descDetalhe=document.getElementById('desc-detalhe').value.trim();const cartaoSel=document.getElementById('cartao').value;const cartaoNome=cartaoSel==='__o'?document.getElementById('cartao-item').value.trim():cartaoSel;const cartaoMes=document.getElementById('cartao-mes').value;const err=document.getElementById('ferr');if(!cat){err.textContent='selecione a categoria';err.style.display='block';return;}if(!subcat){err.textContent='selecione a subcategoria';err.style.display='block';return;}if(!valor||valor<=0){err.textContent='informe um valor válido';err.style.display='block';return;}if(cartaoSel==='__o'&&!cartaoNome){err.textContent='informe o nome do item da fatura';err.style.display='block';return;}err.style.display='none';const btn=document.querySelector('#modal-lanc .btn.bp');btn.textContent='enviando...';btn.disabled=true;try{const params=new URLSearchParams({action:'addLancamento',aba:currentMonth,categoria:cat,subcategoria:subcat,valor:valor.toFixed(2),status,descricao:descDetalhe});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success){let abate=null;if(cartaoNome)abate=await cartaoAbate(cartaoMes,cartaoNome,valor);document.getElementById('cartao').value='';cartaoToggle();document.getElementById('valor').value='';document.getElementById('desc-detalhe').value='';document.getElementById('cat').value='';document.getElementById('subcat-wrap').style.display='none';err.style.color='var(--success-text)';err.style.display='block';err.textContent=`✅ ${subcat}: +R$ ${valor.toFixed(2).replace('.',',')} → total R$ ${parseFloat(d.total).toFixed(2).replace('.',',')}${abate?' · '+abate.msg:''}`;setTimeout(()=>{err.style.display='none';err.style.color='var(--danger-text)';lancFecha();syncAll();},abate?4000:1800);}else{err.textContent='erro: '+(d.error||'desconhecido');err.style.display='block';}}catch(e){err.textContent='erro de conexão: '+e.message;err.style.display='block';}btn.innerHTML='<i class="ti ti-plus"></i>adicionar e enviar';btn.disabled=false;}
+async function addLanc(){if(document.getElementById('rep').value)return repLanc();const valor=parseFloat(document.getElementById('valor').value);const cat=document.getElementById('cat').value;const subcat=document.getElementById('subcat').value;const status=document.getElementById('status').value;const descDetalhe=document.getElementById('desc-detalhe').value.trim();const cartaoSel=document.getElementById('cartao').value;const cartaoNome=cartaoSel==='__o'?document.getElementById('cartao-item').value.trim():cartaoSel;const cartaoMes=document.getElementById('cartao-mes').value;const err=document.getElementById('ferr');if(!cat){err.textContent='selecione a categoria';err.style.display='block';return;}if(!subcat){err.textContent='selecione a subcategoria';err.style.display='block';return;}if(!valor||valor<=0){err.textContent='informe um valor válido';err.style.display='block';return;}if(cartaoSel==='__o'&&!cartaoNome){err.textContent='informe o nome do item da fatura';err.style.display='block';return;}err.style.display='none';const btn=document.querySelector('#modal-lanc .btn.bp');btn.textContent='enviando...';btn.disabled=true;try{const params=new URLSearchParams({action:'addLancamento',aba:currentMonth,categoria:cat,subcategoria:subcat,valor:valor.toFixed(2),status,descricao:descDetalhe});const res=await fetch(`${SCRIPT_URL}?${params}`);const d=await res.json();if(d.success){let abate=null;if(cartaoNome)abate=await cartaoAbate(cartaoMes,cartaoNome,valor);try{const itq=orcItens.find(x=>!x.extra&&nrm(x.cat)===nrm(cat)&&nrm(x.item)===nrm(subcat));const tot=parseFloat(d.total);if(itq&&tot>0){if(tot<itq.plan-0.005){quitGrava(itq,await quitPergunta(itq,tot));}else quitGrava(itq,false);}}catch(e){}document.getElementById('cartao').value='';cartaoToggle();document.getElementById('valor').value='';document.getElementById('desc-detalhe').value='';document.getElementById('cat').value='';document.getElementById('subcat-wrap').style.display='none';err.style.color='var(--success-text)';err.style.display='block';err.textContent=`✅ ${subcat}: +R$ ${valor.toFixed(2).replace('.',',')} → total R$ ${parseFloat(d.total).toFixed(2).replace('.',',')}${abate?' · '+abate.msg:''}`;setTimeout(()=>{err.style.display='none';err.style.color='var(--danger-text)';lancFecha();syncAll();},abate?4000:1800);}else{err.textContent='erro: '+(d.error||'desconhecido');err.style.display='block';}}catch(e){err.textContent='erro de conexão: '+e.message;err.style.display='block';}btn.innerHTML='<i class="ti ti-plus"></i>adicionar e enviar';btn.disabled=false;}
 function renderDividas(){let totalDiv=0,totalMensal=0;const grupos={};divEff().forEach(e=>{const restam=e.total-e.pagas;const pct=e.total>0?Math.round((e.pagas/e.total)*100):0;if(e.saldo>0)totalDiv+=e.saldo;if(e.valorParc>0&&restam>0)totalMensal+=e.valorParc;if(!grupos[e.tipo])grupos[e.tipo]=[];grupos[e.tipo].push({...e,restam,pct});});document.getElementById('div-total').textContent=brl(totalDiv);document.getElementById('div-mensal').textContent=brl(totalMensal);const tipoIcon={'Consignado':'🏦','Boleto':'📄','Cartão':'💳'};const tipoColor={'Consignado':'var(--danger)','Boleto':'var(--warning)','Cartão':'var(--accent)'};let html='';Object.entries(grupos).forEach(([tipo,items])=>{html+=`<div class="card"><div class="ctitle">${tipoIcon[tipo]||'📋'} ${tipo.toLowerCase()}s</div>`;items.forEach(e=>{const cor=e.restam===0?'var(--success)':tipoColor[e.tipo]||'var(--text3)';const badgeClass=e.restam===0?'bok':e.pct>50?'bpend':'bred';html+=`<div class="loan-card"><div class="loan-top"><span class="loan-name">${e.nome}</span><span class="badge ${badgeClass}">${e.restam===0?'✅ quitado':`${e.pagas}/${e.total}x · ${brl(e.valorParc)}`}</span></div><div class="loan-info"><span>${e.saldo>0?'saldo: '+brl(e.saldo):'quitado'}${e.ed?' ✎':''}</span><span>${e.venc?'venc: '+e.venc:''}</span></div><div style="display:flex;gap:6px;margin:4px 0"><button class="orc-ed" style="margin:0" onclick="divEditar(\'${e.nome}\')">editar</button>${e.restam>0?`<button class="orc-ed" style="margin:0" onclick="divMaisUma(\'${e.nome}\')">+1 parcela paga</button>`:''}${e.pagas>0?`<button class="orc-ed" style="margin:0" onclick="divMenosUma(\'${e.nome}\')">−1</button>`:''}</div><div class="loan-progress"><div class="pl"><span>${e.pagas} pagas · ${e.restam} restantes</span><span>${e.pct}%</span></div><div class="pb"><div class="pf" style="width:${e.pct}%;background:${cor}"></div></div></div>${e.obs?`<div style="font-size:11px;color:var(--accent-text);background:var(--accent-bg);padding:4px 8px;border-radius:4px;margin-top:4px">📝 ${e.obs}</div>`:''}</div>`;});html+='</div>';});document.getElementById('div-lista').innerHTML=html;}
 function addV(n){vendas+=n;localStorage.setItem('vendas',vendas);updV();}
 function resetV(){vendas=0;localStorage.setItem('vendas',0);updV();}
