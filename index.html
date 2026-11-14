@@ -879,6 +879,12 @@ html:root body.bg-preto .pal-grafite{--accent:#9aa5b8;--accent-bg:#2a303c;--acce
         <option value="OUT" selected>Outubro/2026</option>
         <option value="NOV">Novembro/2026</option>
         <option value="DEZ">Dezembro/2026</option>
+        <option value="JAN">Janeiro/2027</option>
+        <option value="FEV">Fevereiro/2027</option>
+        <option value="MAR">Março/2027</option>
+        <option value="ABR">Abril/2027</option>
+        <option value="MAI">Maio/2027</option>
+        <option value="JUN">Junho/2027</option>
     </select>
     <div class="content">
       <div class="notas-mod" data-area="financas"></div>
@@ -2025,8 +2031,8 @@ const FIN_TESTE=!!(FIN_CFG.sheetId&&FIN_CFG.scriptUrl);
 const SHEET_ID=FIN_TESTE?FIN_CFG.sheetId:FIN_PADRAO.sheetId;
 const BASE=`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
 const SCRIPT_URL=FIN_TESTE?FIN_CFG.scriptUrl:FIN_PADRAO.scriptUrl;
-const MONTHS={'SET':{label:'Setembro/2026',saldo:'SET!M32:M32',entrada:4964.82,rendaExtra:69.22},'OUT':{label:'Outubro/2026',saldo:'OUT!M22:M22',entrada:2489.46,rendaExtra:5100},'NOV':{label:'Novembro/2026',saldo:'NOV!M22:M22',entrada:2900.00,rendaExtra:0},'DEZ':{label:'Dezembro/2026',saldo:'DEZ!M22:M22',entrada:2900.00,rendaExtra:0}};
-let currentMonth=(function(){const d=new Date();return d.getFullYear()===2026?({8:'SET',9:'OUT',10:'NOV',11:'DEZ'}[d.getMonth()]||'OUT'):'OUT';})(),chartInst=null;
+const MONTHS={'SET':{label:'Setembro/2026',saldo:'SET!M32:M32',entrada:4964.82,rendaExtra:69.22},'OUT':{label:'Outubro/2026',saldo:'OUT!M22:M22',entrada:2489.46,rendaExtra:5100},'NOV':{label:'Novembro/2026',saldo:'NOV!M22:M22',entrada:2900.00,rendaExtra:0},'DEZ':{label:'Dezembro/2026',saldo:'DEZ!M22:M22',entrada:2900.00,rendaExtra:0},'JAN':{label:'Janeiro/2027',saldo:'JAN!M22:M22',entrada:2900.00,rendaExtra:0},'FEV':{label:'Fevereiro/2027',saldo:'FEV!M22:M22',entrada:2900.00,rendaExtra:0},'MAR':{label:'Março/2027',saldo:'MAR!M22:M22',entrada:2900.00,rendaExtra:0},'ABR':{label:'Abril/2027',saldo:'ABR!M22:M22',entrada:2900.00,rendaExtra:0},'MAI':{label:'Maio/2027',saldo:'MAI!M22:M22',entrada:2900.00,rendaExtra:0},'JUN':{label:'Junho/2027',saldo:'JUN!M22:M22',entrada:2900.00,rendaExtra:0}};
+let currentMonth=(function(){const d=new Date();return d.getFullYear()===2026?({8:'SET',9:'OUT',10:'NOV',11:'DEZ'}[d.getMonth()]||'OUT'):d.getFullYear()===2027?(['JAN','FEV','MAR','ABR','MAI','JUN'][d.getMonth()]||'JUN'):'OUT';})(),chartInst=null;
 let vendas=parseInt(localStorage.getItem('vendas')||'0');
 
 /* ===== DÍVIDAS EDITÁVEIS ===== */
@@ -2414,7 +2420,7 @@ function orcRestaura(){if(!orcEd||!orcEd.it)return;const o=getOrc(),mm=orcMes(o,
 function orcExcluiExtra(){if(!orcEd||!orcEd.it||!orcEd.it.extra)return;if(!confirm('Excluir este gasto planejado?'))return;const o=getOrc(),mm=orcMes(o,currentMonth);mm.ex=mm.ex.filter(z=>z.id!==orcEd.it.xid);saveOrc(o);orcFecha();orcRefaz();}
 
 /* ===== PÁGINA MÊS ===== */
-const MES_NOME={SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro'};
+const MES_NOME={SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro',JAN:'Janeiro',FEV:'Fevereiro',MAR:'Março',ABR:'Abril',MAI:'Maio',JUN:'Junho'};
 let mesAberto={};
 
 /* receitas */
@@ -2431,7 +2437,7 @@ function lancAbre(cat){
   document.getElementById('subcat-wrap').style.display='none';
   if(c.value)loadSubcats();
 }
-const MES_ORDEM=['SET','OUT','NOV','DEZ'];
+const MES_ORDEM=['SET','OUT','NOV','DEZ','JAN','FEV','MAR','ABR','MAI','JUN'];
 function cartaoToggle(){
   const v=document.getElementById('cartao').value,w=document.getElementById('cartao-wrap');
   w.style.display=v?'block':'none';document.getElementById('cartao-item-w').style.display=v==='__o'?'block':'none';document.getElementById('cartao-mes').closest('.fg').style.display=document.getElementById('rep').value?'none':'block';
